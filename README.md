@@ -1,48 +1,50 @@
 # QTJP Learning Mobile
 
-Ứng dụng Flutter/Dart cho Android và iOS, sử dụng chung API Spring Boot của QTJP Learning. Repository này chỉ chứa ứng dụng Mobile, không chứa backend, cơ sở dữ liệu hoặc khóa dịch vụ AI.
+Ứng dụng học tiếng Nhật dành cho Android và iOS, được xây dựng bằng Flutter và Dart, kết nối với hệ thống QTJP Learning qua API Spring Boot.
 
-## Chức năng
+## Tính năng
 
-- Bảng chữ cái Hiragana/Katakana, nét viết ngoại tuyến và phát âm.
-- Từ điển, Flashcard, giáo trình ngữ pháp và tiến độ học.
-- Từ điển AI, phân tích ngữ pháp, luyện viết AI và trợ lý Kyuto.
-- Thi thử JLPT: tiếp tục lượt thi, các phần thi, âm thanh, kết quả và lịch sử.
-- Học qua YouTube/TikTok: video có sẵn, phụ đề, từ vựng và ngữ pháp.
-- Tài khoản, hồ sơ/ảnh đại diện, giữ phiên bảo mật và thông báo.
-- Chọn gói VIP và thanh toán qua VNPAY bằng API hiện có; trạng thái thanh toán/quyền VIP do backend xác nhận.
+- **Bảng chữ cái:** Hiragana, Katakana, hướng dẫn nét viết và phát âm.
+- **Từ vựng:** tra từ, ví dụ, học Flashcard và lưu tiến độ theo cấp độ JLPT.
+- **Ngữ pháp:** giáo trình theo cấp độ, tra mẫu và phân tích câu.
+- **Luyện viết:** chọn chủ đề, nộp bài, nhận nhận xét và xem lịch sử.
+- **Trợ lý Kyuto:** giải đáp và gợi ý học liệu theo ngữ cảnh.
+- **Thi thử JLPT:** làm bài, nghe, tiếp tục lượt thi và xem kết quả.
+- **Học qua video:** YouTube/TikTok, phụ đề, bản dịch, từ vựng và giải thích ngữ pháp.
+- **Tài khoản:** đăng ký, đăng nhập, khôi phục mật khẩu, hồ sơ và thông báo.
+- **VIP:** lựa chọn gói học, thanh toán VNPAY và xem lịch sử giao dịch.
 
-## Chuẩn bị
+## Công nghệ
 
-- Flutter tương thích với phiên bản Dart khai báo trong [pubspec.yaml](./pubspec.yaml).
-- Android SDK/JDK hoặc macOS/Xcode nếu phát triển iOS.
-- Backend QTJP đang chạy, kết nối được MySQL; các tính năng AI/VNPAY cần cấu hình tương ứng ở backend.
+Flutter · Dart · Spring Boot REST API · JWT · Android Keystore / iOS Keychain
 
-```powershell
+## Cài đặt
+
+Yêu cầu Flutter với Dart tương thích [pubspec.yaml](./pubspec.yaml), Android SDK hoặc Xcode trên macOS và backend QTJP Learning.
+
+~~~sh
 flutter pub get
-flutter analyze
-flutter test
-```
+flutter run --dart-define=API_BASE_URL=https://your-api-domain.com
+~~~
 
-## Chạy bản phát triển
+Với Android kết nối USB và backend chạy tại cổng 8080 trên máy tính:
 
-Với Android thật kết nối USB, chuyển tiếp cổng API trước khi chạy. Nếu có nhiều thiết bị, thêm `-s <device-id>` cho adb và `-d <device-id>` cho Flutter.
-
-```powershell
+~~~sh
 adb reverse tcp:8080 tcp:8080
 flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8080
-```
+~~~
 
-Chạy lại `adb reverse` sau khi cắm lại USB/khởi động thiết bị. Chỉ giữ một phiên Flutter/Gradle đang chạy. Khi thêm plugin native, dừng phiên cũ và chạy lại app; Hot Reload/Hot Restart không đủ.
+Bản release sử dụng API qua HTTPS. Việc build và chạy iOS cần macOS/Xcode.
 
-iPhone thật cần backend HTTPS truy cập được từ thiết bị và môi trường build macOS. Bản release yêu cầu `API_BASE_URL` dùng HTTPS; không có endpoint sản xuất mặc định.
+## Kiểm thử
 
-## Bản checkpoint hiện tại
+~~~sh
+flutter analyze
+flutter test
+~~~
 
-Đây là bản phát triển, chưa phải bản phát hành đã nghiệm thu trên cả Android/iOS. Phát video/âm thanh, AI và VNPAY cần được kiểm tra trên thiết bị với cấu hình backend thực tế. Không coi kết quả test giả lập là xác nhận giao dịch thật hoặc AI thật. Google OAuth native chưa được triển khai.
+## Tài liệu
 
-- [Hợp đồng API và cách kiểm tra trên thiết bị](./docs/mobile-api.md)
-- [Tiến độ, giới hạn và kết quả kiểm thử](./docs/development-checkpoints.md)
-- [Nguồn dữ liệu và giấy phép nét viết Kana](./assets/alphabet/KANJIVG_LICENSE.txt)
-
-Không đưa mật khẩu, JWT, khóa Gemini/VNPAY, keystore, cấu hình máy cá nhân, build hoặc cache vào Git. `pubspec.lock` được giữ để tái lập dependency của ứng dụng.
+- [Tổng quan chức năng](./docs/features.md)
+- [API và cấu hình kết nối](./docs/mobile-api.md)
+- [Giấy phép dữ liệu nét viết Kana](./assets/alphabet/KANJIVG_LICENSE.txt)

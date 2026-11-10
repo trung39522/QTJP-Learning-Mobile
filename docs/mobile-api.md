@@ -1,87 +1,137 @@
-# Kết nối dữ liệu QTJP Mobile
+# API và cấu hình kết nối
 
-## Nguồn dữ liệu
+Ứng dụng sử dụng REST API Spring Boot của QTJP Learning. Địa chỉ máy chủ được truyền qua `API_BASE_URL` khi chạy hoặc build.
 
-- Kana và nét viết: asset ngoại tuyến sẵn có, không phụ thuộc backend.
-- Từ điển: `GET /api/dictionary/search?keyword=...`, không cần đăng nhập.
-- Từ điển AI: `POST /api/dictionary/ai` gửi `keyword` (1–100 ký tự) và `mode` (`LOOKUP` hoặc `EXPLAIN`); `GET /api/dictionary/ai/quota`. Cả hai yêu cầu JWT. Kết quả nằm trong `entry`, lượt còn lại lấy từ API quota/phản hồi HTTP 429, không tự tính ở client.
-- Đăng nhập: `POST /api/users/login`, giữ nguyên hợp đồng website (username, password, replaceOtherSession).
-- Flashcard: `GET /api/flashcards/decks?level=...`, sau đó tải `/decks/{id}/vocabularies` khi mở bộ thẻ.
-- Lưu tiến độ: `POST /api/flashcards/progress` với vocabularyId và remembered. Chỉ chuyển thẻ sau khi lưu thành công.
-- Ngữ pháp: `GET /api/grammar/lessons?level=...` và `/lessons/{id}`.
-- Phân tích ngữ pháp AI: `POST /api/grammar/analyze` gửi `sentence` (1–1.000 ký tự), `translationHint` và `context`; phản hồi gồm `sentence`, `translation`, `grammarPoints` (mỗi mục có `grammar` và `contextNote`).
-- Luyện viết: `GET /api/writing/topics?level=...`, `POST /api/writing/topics/generate`, `POST /api/writing/submit`; bài sửa gửi parentWritingId của lần nộp trước, không tự truyền userId.
-- Lịch sử/thống kê viết: `GET /api/writing/history` và `/api/writing/stats`. Có thể mở một lần nộp cũ để viết lại.
-- Kyuto: `POST /api/assistant/chat` với message và tối đa 10 lượt hội thoại hợp lệ gần nhất (role user/assistant, bỏ nội dung rỗng). Khóa Gemini, quota và truy xuất dữ liệu vẫn do backend quản lý.
-- JLPT: `GET /api/jlpt/exams?level=...`, `/exams/{id}`, `/history`; `POST /attempts/start` gửi `examId`; tiếp tục bằng `GET /attempts/{id}`. Lưu đáp án bằng `PUT /attempts/{id}/answer` (`answerKeyId`, `selectedOption`, cho phép null để bỏ chọn); đánh dấu bằng `PUT /attempts/{id}/mark`.
-- Chuyển phần JLPT: `POST /api/jlpt/attempts/{id}/complete-section` và `/start-next-section`; phần cuối do backend nộp/chấm điểm. Kết quả dùng `GET /attempts/{id}/result`. Không gửi userId hoặc đáp án đúng từ client.
-- Video: `GET /api/videos/presets?level=...`, `/history`, `/usage`, `/presets/{id}` và `/{id}`. Phân tích link bằng `POST /api/videos/analyze` với `url`; phân tích lại bằng `POST /api/videos/{id}/reanalyze`; giải thích câu bằng `POST /api/videos/subtitles/{id}/grammar`.
-- Toàn bộ `/api/videos/**`, kể cả danh sách mẫu, yêu cầu JWT theo SecurityConfig. Mobile mặc định lấy tất cả video giống website (không gửi `level`), có thể chọn N5–N1 để lọc. Lịch sử/quota lỗi không xóa danh sách đã tải thành công. Phân tích lại chỉ có ADMIN theo backend.
-- VIP/VNPAY: `POST /api/payments/vnpay/create` chỉ gửi `months` (1, 3, 6, 12); `GET /api/payments/vnpay/history`; cả hai dùng JWT. Giá niêm yết tham khảo cùng website/backend; số tiền thanh toán cuối cùng phải lấy từ phản hồi tạo đơn.
-- Tài khoản: `POST /api/users/register`, `/forgot-password`, `/reset-password`; `GET/PUT /api/users/me/profile`, `PUT /api/users/me/password`, `POST/DELETE /api/users/me/avatar`, `GET /api/users/me/sessions`, `DELETE /api/users/me/sessions/others`. Upload ảnh dùng multipart trường `file`, JPG/PNG tối đa 2 MB. Không gửi userId hoặc quyền tài khoản từ client.
-- Thông báo: `GET /api/notifications`, `PATCH /api/notifications/{id}/read` và `/read-all`. Chỉ thay đổi trạng thái đọc sau khi máy chủ xác nhận.
-- Các API học yêu cầu JWT Bearer, không thay đổi hoặc bỏ qua bảo mật backend.
+## Cấu hình
 
-## Chạy trên realme qua USB
+~~~sh
+flutter run --dart-define=API_BASE_URL=http<LOCAL_PROJECT_PATH>
+~~~
 
-Backend Spring Boot hiện tại trên máy tính phải đang chạy ở cổng 8080 và kết nối được MySQL.
-Người dùng chủ động chạy các lệnh sau khi cần kiểm tra ứng dụng; không cần tạo task mới:
+Với Android kết nối USB và backend tại cổng 8080:
 
-```powershell
-adb -s 0H73A09I22103260 reverse tcp:8080 tcp:8080
-flutter run -d 0H73A09I22103260 --dart-define=API_BASE_URL=htt<LOCAL_PROJECT_PATH>
-```
+~~~sh
+adb reverse tcp:8080 tcp:8080
+flutter run --dart-define=API_BASE_URL=htt<LOCAL_PROJECT_PATH>
+~~~
 
-`127.0.0.1` trên điện thoại chỉ đến backend máy tính khi có adb reverse. Khi rút/cắm USB hoặc khởi động lại thiết bị, cần chạy lại lệnh adb reverse. Không chạy thêm phiên flutter run nếu đã có một phiên đang hoạt động. Các plugin âm thanh, WebView, kho bảo mật, chọn ảnh và lần bổ sung `url_launcher`/`package_info_plus` cần dừng phiên cũ và chạy lại `flutter run`, không chỉ Hot Reload/Hot Restart.
+Cần thiết lập lại chuyển tiếp cổng sau khi kết nối lại USB hoặc khởi động lại thiết bị. iOS sử dụng API HTTPS truy cập được từ thiết bị và môi trường macOS/Xcode.
 
-Mở Từ điển để kiểm tra dữ liệu công khai (từ mặc định: 学校). Sau đó đăng nhập **trên điện thoại** bằng tài khoản website để tải bộ thẻ và ngữ pháp. Không ghi tài khoản/mật khẩu vào mã nguồn hoặc file cấu hình.
+Bản release yêu cầu HTTPS. Các mốc thời gian JLPT dạng `LocalDateTime` dùng `API_TIMEZONE_OFFSET`, mặc định `+07:00`; mốc có thông tin múi giờ được giữ nguyên.
 
-## Android/iOS và bản phát hành
+## Xác thực và tài khoản
 
-Đổi endpoint bằng `--dart-define=API_BASE_URL=http<LOCAL_PROJECT_PATH><dia-chi-backend>` khi build/run. Bản release bắt buộc HTTPS; không có địa chỉ API sản xuất mặc định. Endpoint không được chứa thông tin đăng nhập.
+Các endpoint yêu cầu đăng nhập sử dụng `Authorization: Bearer <token>`. HTTP 401 kết thúc phiên hiện tại; HTTP 403 hiển thị thông báo quyền truy cập.
 
-Android chỉ cho HTTP loopback trong cấu hình debug, không mở cleartext cho bản release. iPhone thật không dùng được adb reverse; cần backend HTTPS mà iPhone truy cập được và build trên macOS. Không tắt kiểm tra chứng chỉ hoặc bật ngoại lệ HTTP toàn cục cho iOS.
+| Phương thức | Endpoint | Nội dung |
+| --- | --- | --- |
+| POST | `/api/users/login` | `username`, `password`, `replaceOtherSession` |
+| POST | `/api/users/register` | Đăng ký tài khoản |
+| POST | `/api/users/forgot-password` | Yêu cầu khôi phục mật khẩu |
+| POST | `/api/users/reset-password` | Đặt lại mật khẩu bằng token |
+| GET / PUT | `/api/users/me/profile` | Đọc hoặc cập nhật hồ sơ |
+| PUT | `/api/users/me/password` | Đổi mật khẩu |
+| POST / DELETE | `/api/users/me/avatar` | Cập nhật hoặc xóa ảnh đại diện |
+| GET | `/api/users/me/sessions` | Danh sách phiên thiết bị |
+| DELETE | `/api/users/me/sessions/others` | Thu hồi các phiên khác |
 
-## Phiên đăng nhập và giới hạn hiện tại
+Ảnh đại diện dùng multipart với trường `file`, định dạng JPG/PNG, tối đa 2 MB. Đổi mật khẩu thành công yêu cầu đăng nhập lại. Trường hợp `VIP_SESSION_ACTIVE` có bước xác nhận thay thế phiên.
 
-- Mặc định JWT chỉ giữ trong bộ nhớ. Có thể chọn **Giữ đăng nhập trên thiết bị này**: chỉ JWT và địa chỉ API được lưu bằng `flutter_secure_storage`, không lưu mật khẩu/hồ sơ hoặc dùng file/SharedPreferences dạng văn bản làm phương án dự phòng. Android tắt backup dữ liệu app; iOS cấu hình Keychain entitlements.
-- Khi mở lại app, JWT đã lưu phải được backend xác nhận qua `GET /api/users/me/profile` trước khi nhận diện tài khoản. Token hết hạn bị xóa; mất mạng không hiển thị hồ sơ cũ và có nút thử khôi phục ở Cá nhân. Đăng xuất hoặc đăng nhập không chọn giữ phiên xóa bản lưu. Ghi/xóa được xếp hàng để thao tác ghi chậm không khôi phục token sau đăng xuất. Đăng nhập mới hủy kết quả khôi phục đang chờ, kể cả khi lần đăng nhập mới thất bại.
-- Khi kho bảo mật bị khóa/lỗi, app báo lỗi tại Cá nhân; không lưu token sang nơi kém an toàn hơn. Cần kiểm tra Keychain/Keystore trên máy thật; thao tác xóa kho thất bại có thể cần người dùng đăng xuất lại khi thiết bị mở khóa.
-- Đăng ký thành công quay về đăng nhập, không tự cấp phiên. Quên mật khẩu hiển thị phản hồi chung của backend; màn hình đặt lại nhận liên kết từ email hoặc token. Chưa đăng ký universal/app link tự mở ứng dụng. Đổi mật khẩu thành công xóa phiên hiện tại và yêu cầu đăng nhập lại; lỗi giữ form để sửa. Email thực tế phụ thuộc cấu hình gửi thư của backend.
-- Nếu backend trả VIP_SESSION_ACTIVE, app hỏi xác nhận trước khi thay phiên thiết bị khác.
-- HTTP 401 xóa phiên cũ; HTTP 403 báo thiếu quyền, kể cả khi gateway trả nội dung lỗi không phải JSON. Phản hồi thành công sai JSON vẫn báo lỗi dữ liệu. Phản hồi của số phiên cũ bị loại bỏ, kể cả khi backend cấp lại cùng chuỗi JWT; không làm hết phiên tài khoản hiện tại.
-- Không dùng dữ liệu demo khi mất mạng hoặc tự thay dữ liệu cấp độ khác. Demo repository chỉ dùng khi được inject rõ ràng trong kiểm thử.
-- Luyện viết AI và Kyuto đã được tích hợp trong mã ứng dụng. Không tự tạo đề, tự chấm bài hoặc tự gửi câu hỏi khi mở màn hình. Chỉ gọi AI khi người dùng bấm gửi/tạo đề.
-- Yêu cầu AI có thời gian chờ riêng (120 giây cho Kyuto/tạo đề, 180 giây cho chấm bài); không tự thử lại POST. Nếu chấm bài quá thời gian chờ, app nhắc mở lịch sử trước khi gửi lại vì backend có thể đã lưu kết quả.
-- Bản thảo giữ tại màn hình khi lỗi mạng; khi rời bản thảo chưa nộp, app hỏi lựa chọn. Không lưu bản thảo hoặc hội thoại vào file. Dữ liệu của phiên cũ không hiển thị cho tài khoản khác.
-- Khi Kyuto hết lượt hoặc AI tạm ngừng, câu hỏi vẫn ở ô nhập, nguồn/liên kết học liệu do backend trả về vẫn xem được. `QUOTA_EXCEEDED` cập nhật số lượt hiển thị về 0; không chặn các câu hỏi điều hướng/tra cứu không tiêu tốn AI ở backend.
-- Liên kết Kyuto chỉ được ánh xạ vào danh sách route Flutter cho phép; không mở URL bên ngoài từ kết quả AI. Mở được bài ngữ pháp cụ thể, danh sách Flashcard, JLPT và Video theo cấp độ; các đường dẫn chưa có tương đương native không được biến thành liên kết hoạt động.
-- JLPT dùng tài liệu số hóa từ `examJsonUrl` khi có; lỗi tải tài liệu có nút tải lại. Mở đề hoặc tải danh sách không tự bắt đầu lượt thi. Sau khi mất phản hồi bắt đầu, cần tải lại danh sách để tìm lượt đang làm trước khi bắt đầu lại.
-- Thời gian JLPT từ Spring `LocalDateTime` được đọc theo `API_TIMEZONE_OFFSET` (mặc định `+07:00`, đúng máy backend hiện tại), không theo múi giờ điện thoại. Nếu chuyển backend sang múi giờ khác phải truyền giá trị tương ứng khi chạy/build. Mốc có offset/Z được giữ nguyên. Backend quyết định hết giờ và điểm; điểm `/180` là điểm luyện tập tham khảo.
-- Video dùng màn hình Flutter cho danh sách, phụ đề, bản dịch, từ vựng và ngữ pháp. WebView chỉ chứa trình phát YouTube/TikTok chính thức với ID đã kiểm tra; không nhúng website QTJP, JWT, URL nhập thô hoặc câu trả lời AI. Trình phát dùng origin HTTPS từ app ID thực tế do `package_info_plus` đọc, không dùng địa chỉ HTTP backend làm referrer. Chọn câu tua đến mốc tương ứng; bỏ tick cũ trong lúc chờ tua để tránh nhảy ngược câu; nghe lại câu dừng tại cuối câu; video tạm dừng khi app ra nền/rời màn hình.
-- Mỗi video có sẵn có thể **Xem video trước, chưa gọi AI** bằng metadata thật của danh sách. Trong màn xem trước, bấm **Tải phụ đề và phân tích AI** mới gọi API mở video mẫu. Màn học có giải thích ngữ pháp và **Hỏi Kyuto về câu này**: điền sẵn câu, chưa gửi câu hỏi cho đến khi người học bấm gửi. Back từ màn học quay về danh sách video.
-- Mở danh sách video chỉ đọc dữ liệu. Riêng `GET /presets/{id}` có thể tạo phụ đề ở backend nên chỉ gọi khi bấm mở video mẫu. Phân tích/phân tích lại chờ tối đa 180 giây, ngữ pháp 120 giây; không tự gửi lại. Sau timeout tạo phụ đề/phân tích, khóa thao tác tạo tiếp cho đến khi người dùng kiểm tra lịch sử. Quyền và quota lấy từ máy chủ. Video bị hạn chế nhúng/khu vực, riêng tư hoặc mất mạng hiển thị lỗi trình phát và nút thử lại.
-- Hồ sơ, thiết bị, thông báo và video xóa dữ liệu riêng khi đổi phiên; phản hồi cũ không được áp dụng cho tài khoản mới. Thông báo chỉ mở các route native cho phép; đường dẫn ngoài bị bỏ qua, không có push/polling nền. API client từ chối đích khác origin API và không theo redirect mang thông tin đăng nhập.
-- Google OAuth native chưa triển khai; không hiển thị nút đăng nhập Google chưa hoạt động. VIP/VNPAY đã có màn hình native và dùng backend hiện có, không có backend thanh toán mới.
+Tùy chọn giữ đăng nhập lưu token và địa chỉ API qua `flutter_secure_storage`. Khi mở lại ứng dụng, phiên được xác nhận bằng API hồ sơ. Dữ liệu và phản hồi được ràng buộc với phiên tài khoản hiện tại.
 
-## Thao tác AI và thanh toán trên app
+## Từ điển, Flashcard và ngữ pháp
 
-- **Từ điển → Tra từ / giải thích với AI**: tra cứu hoặc giải thích chi tiết, đọc quota server. Không gọi AI khi chỉ mở màn hình; timeout giữ nội dung và yêu cầu kiểm tra quota trước khi gửi lại.
-- **Ngữ pháp → Tra mẫu / phân tích câu bằng AI**: nhập câu/mẫu rồi bấm phân tích; kết quả hiển thị bản dịch, cấu trúc, ý nghĩa, cách dùng, lưu ý và ví dụ. Không tự gửi khi mở.
-- **Cá nhân → Nâng cấp / gia hạn VIP** (hoặc liên kết VIP ở Video/AI): tải hồ sơ và lịch sử; chọn gói → xác nhận tạo đơn → xem số tiền backend trả về → bấm **Mở VNPAY để thanh toán**. Trình duyệt hệ thống mở đúng URL HTTPS đã ký, không nhận JWT qua header hay query do mobile thêm.
-- Kiểm tra host/path VNPAY cho phép, mã đơn, số tiền VND nhân 100 và dạng chữ ký trước khi mở. Không sửa query đã ký. Tên miền sandbox hiển thị rõ môi trường thử nghiệm; không trình bày sandbox như thanh toán thật.
-- Quay về app sẽ đọc lại lịch sử và hồ sơ; có nút **Kiểm tra thanh toán và cập nhật VIP** để kiểm tra tiếp nếu IPN/return còn đang xử lý. Không tin `payment=success` từ URL hoặc việc mở/đóng trình duyệt, không tự sửa membership hay gọi callback/IPN từ mobile.
-- Tạo đơn timeout/phản hồi sai khóa tạo tiếp cho đến khi đọc lịch sử. Mở trình duyệt thất bại thử lại đúng đơn cũ, không POST lại. Lịch sử lỗi khóa tạo/mở thanh toán đến khi xác minh lại. Chọn gói khác không đồng nghĩa hủy đơn ở máy chủ; có cảnh báo đơn chờ để tránh trả trùng. Lịch sử hiện không cung cấp lại paymentUrl sau khi thoát app, vì vậy app không tự dựng URL hoặc giả khả năng tiếp tục đơn cũ.
-- Backend vẫn phải cấu hình VNPAY (mặc định trong mã là Sandbox), xác minh chữ ký/số tiền, cấp VIP và cung cấp return/IPN URL có thể truy cập được. Trên USB, URL callback phải truy cập được từ trình duyệt điện thoại; mobile không tự đổi localhost/cổng trong URL đã ký. Bản iOS cần API/callback HTTPS và kiểm tra trên macOS/iPhone.
-- Tài liệu nền tảng đã đối chiếu: [YouTube WebView/referrer](http<LOCAL_PROJECT_PATH> [url_launcher](http<LOCAL_PROJECT_PATH> [package_info_plus](http<LOCAL_PROJECT_PATH> [VNPAY Sandbox](http<LOCAL_PROJECT_PATH>
+| Phương thức | Endpoint | Nội dung |
+| --- | --- | --- |
+| GET | `/api/dictionary/search?keyword=...` | Tra từ công khai |
+| POST | `/api/dictionary/ai` | `keyword` từ 1–100 ký tự, `mode`: `LOOKUP` hoặc `EXPLAIN` |
+| GET | `/api/dictionary/ai/quota` | Hạn mức tra cứu AI |
+| GET | `/api/flashcards/decks?level=...` | Bộ thẻ theo cấp độ |
+| GET | `/api/flashcards/decks/{id}/vocabularies` | Từ vựng trong bộ thẻ |
+| POST | `/api/flashcards/progress` | `vocabularyId`, `remembered` |
+| GET | `/api/grammar/lessons?level=...` | Danh sách bài ngữ pháp |
+| GET | `/api/grammar/lessons/{id}` | Chi tiết bài học |
+| POST | `/api/grammar/analyze` | `sentence` từ 1–1.000 ký tự, `translationHint`, `context` |
 
-## Kiểm tra
+Từ điển AI trả dữ liệu trong `entry`. Phân tích ngữ pháp trả `sentence`, `translation` và `grammarPoints`; mỗi mục gồm `grammar` và `contextNote`. Hạn mức sử dụng lấy từ máy chủ, bao gồm phản hồi HTTP 429.
 
-```powershell
+## Luyện viết và Kyuto
+
+| Phương thức | Endpoint | Nội dung |
+| --- | --- | --- |
+| GET | `/api/writing/topics?level=...` | Chủ đề luyện viết |
+| POST | `/api/writing/topics/generate` | Tạo chủ đề |
+| POST | `/api/writing/submit` | Nộp bài; bài sửa kèm `parentWritingId` |
+| GET | `/api/writing/history` | Lịch sử bài viết |
+| GET | `/api/writing/stats` | Thống kê |
+| POST | `/api/assistant/chat` | `message` và tối đa 10 lượt hội thoại gần nhất |
+
+Thao tác tạo đề, chấm bài và gửi câu hỏi được thực hiện khi người học xác nhận trên màn hình. Thời gian chờ là 120 giây cho Kyuto/tạo đề và 180 giây cho chấm bài. Khi nộp bài quá thời gian chờ, người học có thể kiểm tra lịch sử trước khi gửi lại.
+
+Các liên kết học liệu từ Kyuto được ánh xạ đến màn hình Flutter tương ứng.
+
+## Thi thử JLPT
+
+| Phương thức | Endpoint | Nội dung |
+| --- | --- | --- |
+| GET | `/api/jlpt/exams?level=...` | Danh sách đề |
+| GET | `/api/jlpt/exams/{id}` | Chi tiết đề |
+| GET | `/api/jlpt/history` | Lịch sử thi |
+| POST | `/api/jlpt/attempts/start` | Bắt đầu với `examId` |
+| GET | `/api/jlpt/attempts/{id}` | Tiếp tục lượt thi |
+| PUT | `/api/jlpt/attempts/{id}/answer` | `answerKeyId`, `selectedOption`; `null` để bỏ chọn |
+| PUT | `/api/jlpt/attempts/{id}/mark` | Đánh dấu câu |
+| POST | `/api/jlpt/attempts/{id}/complete-section` | Hoàn tất phần thi |
+| POST | `/api/jlpt/attempts/{id}/start-next-section` | Bắt đầu phần tiếp theo |
+| GET | `/api/jlpt/attempts/{id}/result` | Kết quả |
+
+Đề số hóa được tải từ `examJsonUrl` khi có. Backend quyết định thời gian, chuyển phần và chấm điểm. Sau khi mất phản hồi bắt đầu bài, ứng dụng tải lại danh sách để tìm lượt đang làm.
+
+## Học qua video
+
+Toàn bộ `/api/videos/**` yêu cầu đăng nhập.
+
+| Phương thức | Endpoint | Nội dung |
+| --- | --- | --- |
+| GET | `/api/videos/presets?level=...` | Video có sẵn; bỏ `level` để lấy tất cả |
+| GET | `/api/videos/history` | Lịch sử học |
+| GET | `/api/videos/usage` | Hạn mức sử dụng |
+| GET | `/api/videos/presets/{id}` | Mở video mẫu và tải nội dung học |
+| GET | `/api/videos/{id}` | Nội dung video đã phân tích |
+| POST | `/api/videos/analyze` | Phân tích liên kết `url` |
+| POST | `/api/videos/{id}/reanalyze` | Phân tích lại, dành cho ADMIN |
+| POST | `/api/videos/subtitles/{id}/grammar` | Giải thích ngữ pháp của câu |
+
+Danh sách mặc định hiển thị tất cả cấp độ. Người học có thể xem trước video, sau đó chọn tải phụ đề và phân tích. Trình phát dùng embed chính thức của YouTube/TikTok; phụ đề, bản dịch và nội dung học hiển thị bằng Flutter.
+
+Thời gian chờ phân tích video là 180 giây, giải thích ngữ pháp là 120 giây. Sau yêu cầu quá thời gian chờ, ứng dụng yêu cầu kiểm tra lịch sử trước khi tạo tiếp. Khả năng phát phụ thuộc quyền nhúng, khu vực và trạng thái video của nhà cung cấp.
+
+## VIP và VNPAY
+
+| Phương thức | Endpoint | Nội dung |
+| --- | --- | --- |
+| POST | `/api/payments/vnpay/create` | `months`: 1, 3, 6 hoặc 12 |
+| GET | `/api/payments/vnpay/history` | Lịch sử giao dịch |
+
+Luồng thanh toán: chọn gói → xác nhận tạo đơn → xem số tiền máy chủ trả về → mở VNPAY bằng trình duyệt hệ thống. URL thanh toán được kiểm tra theo tên miền, đường dẫn, mã đơn và số tiền.
+
+Khi quay về ứng dụng, lịch sử giao dịch và hồ sơ được tải lại để cập nhật quyền VIP. VNPAY Sandbox được hiển thị là môi trường thử nghiệm. Backend xử lý chữ ký, callback/IPN và cấp quyền.
+
+Lịch sử hiện chưa cung cấp lại `paymentUrl` để tiếp tục đơn sau khi đóng ứng dụng. API và callback thanh toán cần truy cập được từ thiết bị.
+
+## Thông báo
+
+- `GET /api/notifications`: danh sách thông báo.
+- `PATCH /api/notifications/{id}/read`: đánh dấu đã đọc.
+- `PATCH /api/notifications/read-all`: đánh dấu tất cả.
+
+Trạng thái đọc được cập nhật sau khi máy chủ xác nhận. Liên kết thông báo mở các màn hình được hỗ trợ trong ứng dụng.
+
+## Kiểm thử tích hợp
+
+~~~sh
 flutter analyze
 flutter test
-```
+~~~
 
-Kiểm thử API dùng transport giả lập để kiểm tra hợp đồng, xác thực, lỗi, phân cấp JLPT, tài khoản, video và thông báo. Kiểm thử multipart chỉ gửi đến HTTP server loopback do test tạo, không upload lên backend thật. Không tạo tài khoản, gửi email, dùng AI hoặc thay đổi dữ liệu website trong kiểm thử. Việc học và lưu tiến độ thật chỉ thực hiện khi người dùng thao tác trong ứng dụng.
-
-Trên realme cần xác nhận phát YouTube/TikTok, chọn ảnh, đóng/mở lại app khi giữ phiên và âm thanh JLPT. iOS cần kiểm tra riêng trên macOS/iPhone với API HTTPS, quyền thư viện ảnh và Keychain. `flutter analyze`/widget test không xác nhận được các tích hợp native này.
+Kiểm thử tự động sử dụng transport giả lập và HTTP server loopback cho multipart. Các kiểm tra trên thiết bị gồm phát video/âm thanh, chọn ảnh, giữ phiên khi đóng/mở ứng dụng và thanh toán Sandbox. iOS cần kiểm tra riêng với Keychain, quyền thư viện ảnh và API HTTPS.
