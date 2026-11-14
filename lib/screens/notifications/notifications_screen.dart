@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
 import '../../core/widgets/api_error_view.dart';
 import '../assistant/assistant_repository.dart';
-import '../profile/profile_editor_screen.dart';
+import '../profile/security_screen.dart';
+import 'device_notifications.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -87,7 +90,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (path == '/security') {
       await Navigator.push(
         context,
-        MaterialPageRoute<void>(builder: (_) => const AccountSessionsScreen()),
+        MaterialPageRoute<void>(builder: (_) => const SecurityScreen()),
       );
     } else {
       final route = assistantMobileRoute(path);
@@ -103,7 +106,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     await _fetch(session);
   });
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(
       title: const Text('Thông báo'),
       actions: [
@@ -129,6 +132,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                const NotificationPermissionCard(),
                 if (_busy) const LinearProgressIndicator(),
                 if (_error != null)
                   ApiErrorView(error: _error!, onRetry: _load),

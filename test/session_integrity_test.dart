@@ -18,6 +18,9 @@ Future<AppController> account(ApiTransport transport) async {
           });
         }
         if (u.path.endsWith('/logout')) return const ApiResponse(200, {});
+        if (u.path == '/api/notifications/unread-count') {
+          return const ApiResponse(200, {'unreadCount': 0});
+        }
         return transport(m, u, h, b);
       },
     ),
@@ -91,6 +94,9 @@ void main() {
       if (u.path.endsWith('/decks')) return const ApiResponse(200, [deck]);
       if (u.path.endsWith('/vocabularies')) {
         return const ApiResponse(200, [word]);
+      }
+      if (m == 'GET' && u.path.endsWith('/progress')) {
+        return const ApiResponse(200, []);
       }
       saves++;
       return const ApiResponse(200, {});

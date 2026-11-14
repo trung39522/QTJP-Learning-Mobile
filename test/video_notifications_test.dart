@@ -77,9 +77,37 @@ Future<void> show(WidgetTester tester, AppController app, Widget screen) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> tap(WidgetTester tester, Finder finder) async {
+Future<void> reveal(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isEmpty &&
+      find.byKey(const ValueKey('video-scroll')).evaluate().isNotEmpty) {
+    final scroll = find
+        .descendant(
+          of: find.byKey(const ValueKey('video-scroll')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    tester.state<ScrollableState>(scroll).position.jumpTo(0);
+    await tester.pumpAndSettle();
+    if (finder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        finder,
+        220,
+        maxScrolls: 40,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('video-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+    }
+  }
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
+}
+
+Future<void> tap(WidgetTester tester, Finder finder) async {
+  await reveal(tester, finder);
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
@@ -270,8 +298,7 @@ void main() {
       });
       await show(tester, app, const VideoScreen());
       expect(queries.single, isEmpty);
-      expect(find.byKey(const ValueKey('video-preset-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('video-preset-2')), findsOneWidget);
+      await tap(tester, find.widgetWithText(ChoiceChip, 'N4'));
       expect(find.textContaining('Lượt AI tạm lỗi'), findsOneWidget);
       await tap(tester, find.widgetWithText(ChoiceChip, 'N4'));
       expect(queries.last, {'level': 'N4'});
@@ -295,7 +322,7 @@ void main() {
               const Text('Native player test surface'),
         ),
       );
-      await tap(tester, find.text('Xem video trước, chưa gọi AI'));
+      await tap(tester, find.byKey(const ValueKey('video-preview-1')));
       expect(opens, 0);
       expect(find.text('Native player test surface'), findsOneWidget);
       await tap(tester, find.byKey(const ValueKey('video-load-ai')));
@@ -339,12 +366,14 @@ void main() {
       );
       await tap(tester, find.byKey(const ValueKey('video-analyze')));
       expect(posts, 1);
+      await reveal(tester, find.byKey(const ValueKey('video-preset-1')));
       expect(
         tester
-            .widget<ListTile>(find.byKey(const ValueKey('video-preset-1')))
-            .onTap,
+            .widget<FilledButton>(find.byKey(const ValueKey('video-preset-1')))
+            .onPressed,
         isNull,
       );
+      await reveal(tester, find.byKey(const ValueKey('video-analyze')));
       expect(
         tester
             .widget<FilledButton>(find.byKey(const ValueKey('video-analyze')))
@@ -382,10 +411,12 @@ void main() {
       final presetTile = find.byKey(const ValueKey('video-preset-1'));
       await tap(tester, presetTile);
       expect(opens, 1);
-      expect(tester.widget<ListTile>(presetTile).onTap, isNull);
+      await reveal(tester, presetTile);
+      expect(tester.widget<FilledButton>(presetTile).onPressed, isNull);
       await tap(tester, find.text('Kiểm tra lịch sử trước khi phân tích lại'));
       expect(opens, 1);
-      expect(tester.widget<ListTile>(presetTile).onTap, isNotNull);
+      await reveal(tester, presetTile);
+      expect(tester.widget<FilledButton>(presetTile).onPressed, isNotNull);
     },
   );
   testWidgets(
@@ -408,6 +439,7 @@ void main() {
       );
       final submit = find.byKey(const ValueKey('video-analyze'));
       await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
       await tester.tap(submit);
       await tester.pump();
       expect(tester.widget<FilledButton>(submit).onPressed, isNull);

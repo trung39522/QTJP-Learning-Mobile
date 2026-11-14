@@ -18,7 +18,7 @@ class DictionaryRepository {
 
 class DictionaryEntry {
   DictionaryEntry.fromJson(Map<String, dynamic> row)
-    : word = jsonText(row, 'word').isEmpty
+    : word = jsonText(row, 'kanji').isNotEmpty
           ? jsonText(row, 'kanji')
           : jsonText(row, 'word'),
       reading = jsonText(row, 'hiragana'),

@@ -1,10 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
+import '../../core/theme/qtjp_colors.dart';
+import '../home/widgets/home_account_avatar.dart';
 import '../auth/account_repository.dart';
 
 class ProfileEditorScreen extends StatefulWidget {
@@ -130,7 +135,7 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(title: const Text('Chỉnh sửa hồ sơ')),
     body: SafeArea(
       child: SingleChildScrollView(
@@ -140,11 +145,51 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
             constraints: const BoxConstraints(maxWidth: 480),
             child: !_valid
                 ? const Text(
-                    'Phiên tài khoản đã thay đổi. Quay lại Cá nhân để mở hồ sơ hiện tại.',
+                    'Phiên tài khoản đã thay đổi. Mở lại Hồ sơ từ menu tài khoản.',
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: context.qtjp.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: context.qtjp.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const HomeAccountAvatar(radius: 25, plain: true),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _app.username,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: context.qtjp.heading,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    'Thông tin cá nhân',
+                                    style: TextStyle(
+                                      color: context.qtjp.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       if (_busy) const LinearProgressIndicator(),
                       if (_message != null)
                         Padding(
@@ -162,8 +207,6 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text('Tên đăng nhập: ${_app.username}'),
-                              const SizedBox(height: 20),
                               TextFormField(
                                 key: const ValueKey('profile-email'),
                                 controller: _email,
@@ -171,10 +214,14 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                                 keyboardType: TextInputType.emailAddress,
                                 decoration: const InputDecoration(
                                   labelText: 'Email',
+                                  prefixIcon: Icon(
+                                    Icons.alternate_email_rounded,
+                                  ),
                                 ),
                                 validator: (value) =>
                                     validateEmail(value ?? ''),
                               ),
+                              const SizedBox(height: 16),
                               TextFormField(
                                 key: const ValueKey('profile-phone'),
                                 controller: _phone,
@@ -182,6 +229,7 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                                 keyboardType: TextInputType.phone,
                                 decoration: const InputDecoration(
                                   labelText: 'Số điện thoại',
+                                  prefixIcon: Icon(Icons.phone_outlined),
                                 ),
                                 validator: (value) =>
                                     validatePhone(value ?? ''),
@@ -305,24 +353,50 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(title: const Text('Thiết bị đăng nhập')),
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           if (!_valid)
-            const Text('Phiên đã thay đổi. Mở lại danh sách từ Cá nhân.')
+            const Text('Phiên đã thay đổi. Mở lại danh sách từ menu Bảo mật.')
           else ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Quản lý thiết bị',
+                style: TextStyle(
+                  color: context.qtjp.heading,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
             if (_busy) const LinearProgressIndicator(),
             if (_error != null) Text(_error!),
             for (final session in _sessions)
-              ListTile(
-                title: Text(jsonText(session, 'device')),
-                subtitle: Text(jsonText(session, 'createdAt')),
-                trailing: session['current'] == true
-                    ? const Text('Thiết bị này')
-                    : null,
+              Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: context.qtjp.border),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  leading: Icon(
+                    Icons.devices_rounded,
+                    color: context.qtjp.blue,
+                  ),
+                  title: Text(jsonText(session, 'device')),
+                  subtitle: Text(jsonText(session, 'createdAt')),
+                  trailing: session['current'] == true
+                      ? const Text('Thiết bị này')
+                      : null,
+                ),
               ),
             OutlinedButton(
               onPressed: _busy ? null : _load,

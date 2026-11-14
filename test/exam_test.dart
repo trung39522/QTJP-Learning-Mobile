@@ -420,20 +420,22 @@ void main() {
       await tap(tester, find.byKey(const ValueKey('exam-option-1')));
       expect(find.text('Đã lưu 1/1 câu của phần này.'), findsOneWidget);
       await tap(tester, find.byKey(const ValueKey('exam-mark')));
-      expect(find.text('Bỏ đánh dấu'), findsOneWidget);
+      expect(find.byTooltip('Bỏ đánh dấu'), findsOneWidget);
+      expect(find.text('Đồng bộ lượt thi'), findsNothing);
       await tap(tester, find.byKey(const ValueKey('exam-complete')));
       await tap(tester, find.text('Xác nhận'));
       expect(find.text('Giờ nghỉ giữa các phần'), findsOneWidget);
       await tap(tester, find.text('Bắt đầu phần tiếp theo'));
       await tap(tester, find.byKey(const ValueKey('exam-complete')));
       await tap(tester, find.text('Xác nhận'));
-      expect(find.text('1/2 câu đúng · 50%'), findsOneWidget);
+      expect(find.text('1/2 đúng'), findsOneWidget);
+      expect(find.text('50.0% chính xác'), findsOneWidget);
       await tap(tester, find.byKey(const ValueKey('exam-review-100')));
       expect(find.text('学校 đọc là がっこう.'), findsOneWidget);
       await tap(tester, find.text('Về danh sách đề'));
       expect(find.byKey(const ValueKey('exam-history-5')), findsOneWidget);
       await tap(tester, find.byKey(const ValueKey('exam-history-5')));
-      expect(find.text('1/2 câu đúng · 50%'), findsOneWidget);
+      expect(find.text('1/2 đúng'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -466,7 +468,7 @@ void main() {
             .onTap,
         isNull,
       );
-      await tap(tester, find.text('Đồng bộ lượt thi'));
+      await tap(tester, find.byTooltip('Tải lại'));
       expect(syncs, 1);
       expect(
         tester

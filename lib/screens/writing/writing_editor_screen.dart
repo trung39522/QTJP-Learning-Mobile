@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/network/api_client.dart';
@@ -132,7 +134,7 @@ class _WritingEditorScreenState extends State<WritingEditorScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _leave();
       },
-      child: Scaffold(
+      child: KyutoScaffold(
         appBar: AppBar(title: const Text('Bài luyện viết')),
         body: SafeArea(
           top: false,
@@ -154,9 +156,9 @@ class _WritingEditorScreenState extends State<WritingEditorScreen> {
                         children: [
                           Text(
                             '${widget.topic.level} · ${widget.topic.title}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 24,
-                              color: QTJPColors.navy,
+                              color: context.qtjp.heading,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -245,10 +247,10 @@ class _WritingEditorScreenState extends State<WritingEditorScreen> {
                             Text(
                               'Kết quả: ${review.score}/100 · Lần ${review.attempt}',
                               key: const ValueKey('writing-score'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
-                                color: QTJPColors.navy,
+                                color: context.qtjp.heading,
                               ),
                             ),
                             if (review.improvement != null)

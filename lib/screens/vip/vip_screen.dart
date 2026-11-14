@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_controller.dart';
@@ -8,6 +11,8 @@ import '../../core/network/api_client.dart';
 import '../../core/widgets/api_error_view.dart';
 import '../auth/account_repository.dart';
 import 'vip_repository.dart';
+import 'vip_presentation.dart';
+import '../profile/models/account_presentation.dart';
 
 typedef CheckoutLauncher = Future<bool> Function(Uri url);
 
@@ -30,6 +35,7 @@ class _VipScreenState extends State<VipScreen> with WidgetsBindingObserver {
   VnpayCheckout? _checkout;
   String? _message;
   final _errors = <Object>[];
+  final _plansKey = GlobalKey();
   bool _current(int session) =>
       mounted && _app.isAuthenticated && _app.api.sessionVersion == session;
 
@@ -253,136 +259,146 @@ class _VipScreenState extends State<VipScreen> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('VIP · Thanh toán VNPAY')),
+  Widget build(BuildContext context) => KyutoScaffold(
+    appBar: AppBar(title: const Text('Nâng cấp VIP')),
     body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          if (!_app.isAuthenticated)
-            ApiErrorView(
-              error: const ApiException(
-                'Đăng nhập để nâng cấp VIP và xem giao dịch của bạn.',
-                status: 401,
-              ),
-              onRetry: _refresh,
-            )
-          else ...[
-            Text(
-              'Gói hiện tại: ${_app.user?['membership'] ?? 'FREE'}',
-              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
-            ),
-            if (_app.user?['vipExpiresAt'] != null)
-              Text('Hiệu lực đến: ${_app.user!['vipExpiresAt']}'),
-            const SizedBox(height: 12),
-            const Text(
-              'Nâng cấp hoặc gia hạn VIP dùng chung tài khoản website. Lượt AI và quyền học do máy chủ quản lý. Nếu còn hạn, backend cộng thời gian gia hạn theo quy định của gói.',
-            ),
-            if (_busy) const LinearProgressIndicator(),
-            for (final error in _errors)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  error is ApiException
-                      ? error.message
-                      : 'Chưa kết nối được dịch vụ thanh toán.',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!_app.isAuthenticated)
+              ApiErrorView(
+                error: const ApiException(
+                  'Đăng nhập để nâng cấp VIP và xem giao dịch của bạn.',
+                  status: 401,
                 ),
+                onRetry: _refresh,
+              )
+            else ...[
+              VipHero(
+                user: _app.user,
+                onChoose: () {
+                  final target = _plansKey.currentContext;
+                  if (target != null) {
+                    Scrollable.ensureVisible(
+                      target,
+                      duration: const Duration(milliseconds: 300),
+                    );
+                  }
+                },
               ),
-            if (_message != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(_message!),
-              ),
-            OutlinedButton.icon(
-              key: const ValueKey('vip-refresh'),
-              onPressed: _busy ? null : _refresh,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Kiểm tra thanh toán và cập nhật VIP'),
-            ),
-            if (_uncertain)
-              const Text(
-                'Chưa xác định được kết quả tạo đơn. Tải lịch sử trước khi tạo lại; không tự gửi lại yêu cầu.',
-              ),
-            if (_checkout case final checkout?) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('Đơn ${checkout.payment.orderCode}'),
-                      Text(
-                        'VIP ${checkout.payment.months} tháng · ${vipMoney(checkout.payment.amount)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                      Text(
-                        checkout.sandbox
-                            ? 'VNPAY Sandbox · môi trường thử nghiệm'
-                            : 'Cổng thanh toán VNPAY',
-                      ),
-                      const Text(
-                        'Kiểm tra gói và số tiền trước khi tiếp tục. Thanh toán thực hiện trên trang VNPAY trong trình duyệt.',
-                      ),
-                      FilledButton(
-                        key: const ValueKey('vip-open-checkout'),
-                        onPressed: _busy || !_historyLoaded
-                            ? null
-                            : _openCheckout,
-                        child: const Text('Mở VNPAY để thanh toán'),
-                      ),
-                      TextButton(
-                        onPressed: _busy ? null : _anotherOrder,
-                        child: const Text('Chọn gói khác'),
-                      ),
-                    ],
+              const VipBenefits(),
+              const SizedBox(height: 12),
+              if (_busy) const LinearProgressIndicator(),
+              for (final error in _errors)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    error is ApiException
+                        ? error.message
+                        : 'Chưa kết nối được dịch vụ thanh toán.',
                   ),
                 ),
+              if (_message != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(_message!),
+                ),
+              OutlinedButton.icon(
+                key: const ValueKey('vip-refresh'),
+                onPressed: _busy ? null : _refresh,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Kiểm tra thanh toán và cập nhật VIP'),
               ),
-            ] else ...[
-              const SizedBox(height: 16),
+              if (_uncertain)
+                const Text(
+                  'Chưa xác định được kết quả tạo đơn. Tải lịch sử trước khi tạo lại; không tự gửi lại yêu cầu.',
+                ),
+              SizedBox(key: _plansKey, height: 12),
+              Text(
+                'Chọn thời hạn phù hợp',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (_checkout case final checkout?) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Đơn ${checkout.payment.orderCode}'),
+                        Text(
+                          'VIP ${checkout.payment.months} tháng · ${vipMoney(checkout.payment.amount)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                        Text(
+                          checkout.sandbox
+                              ? 'VNPAY Sandbox · môi trường thử nghiệm'
+                              : 'Cổng thanh toán VNPAY',
+                        ),
+                        const Text(
+                          'Kiểm tra gói và số tiền trước khi tiếp tục. Thanh toán thực hiện trên trang VNPAY trong trình duyệt.',
+                        ),
+                        FilledButton(
+                          key: const ValueKey('vip-open-checkout'),
+                          onPressed: _busy || !_historyLoaded
+                              ? null
+                              : _openCheckout,
+                          child: const Text('Mở VNPAY để thanh toán'),
+                        ),
+                        TextButton(
+                          onPressed: _busy ? null : _anotherOrder,
+                          child: const Text('Chọn gói khác'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Kiểm tra số tiền và thời hạn gói trước khi thanh toán.',
+                ),
+                for (final plan in VipPlan.all)
+                  VipPlanCard(
+                    plan: plan,
+                    renew: AccountPresentation(_app.user).vipAt(DateTime.now()),
+                    onChoose:
+                        _busy || _confirming || !_historyLoaded || _uncertain
+                        ? null
+                        : () => _create(plan),
+                  ),
+              ],
+              const SizedBox(height: 20),
               const Text(
-                'Giá niêm yết theo website; số tiền cuối cùng được xác nhận từ máy chủ ở bước tạo đơn.',
+                'Lịch sử giao dịch',
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
               ),
-              for (final plan in VipPlan.all)
+              if (_historyLoaded && _history.isEmpty)
+                const Text('Bạn chưa có giao dịch VIP.'),
+              for (final payment in _history)
                 Card(
                   child: ListTile(
-                    title: Text('VIP ${plan.months} tháng'),
-                    subtitle: Text(vipMoney(plan.listedAmount)),
-                    trailing: FilledButton(
-                      key: ValueKey('vip-plan-${plan.months}'),
-                      onPressed:
-                          _busy || _confirming || !_historyLoaded || _uncertain
-                          ? null
-                          : () => _create(plan),
-                      child: const Text('Chọn gói'),
+                    key: ValueKey('vip-order-${payment.orderCode}'),
+                    title: Text(
+                      '${payment.orderCode} · ${paymentStatus(payment.status)}',
+                    ),
+                    subtitle: Text(
+                      'VIP ${payment.months} tháng · ${vipMoney(payment.amount)}\n${jsonText(payment.data, 'createdAt')}',
                     ),
                   ),
                 ),
             ],
-            const SizedBox(height: 20),
-            const Text(
-              'Lịch sử giao dịch',
-              style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
-            ),
-            if (_historyLoaded && _history.isEmpty)
-              const Text('Bạn chưa có giao dịch VIP.'),
-            for (final payment in _history)
-              Card(
-                child: ListTile(
-                  key: ValueKey('vip-order-${payment.orderCode}'),
-                  title: Text(
-                    '${payment.orderCode} · ${paymentStatus(payment.status)}',
-                  ),
-                  subtitle: Text(
-                    'VIP ${payment.months} tháng · ${vipMoney(payment.amount)}\n${jsonText(payment.data, 'createdAt')}',
-                  ),
-                ),
-              ),
           ],
-        ],
+        ),
       ),
     ),
   );

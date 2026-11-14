@@ -83,7 +83,7 @@ class ApiClient {
     final requestSession = sessionVersion;
     if (authenticated && requestToken == null) {
       throw const ApiException(
-        'Đăng nhập bằng tài khoản QTJP để tải dữ liệu học của website.',
+        'Đăng nhập để tiếp tục học cùng QTJP.',
         status: 401,
       );
     }
@@ -92,9 +92,7 @@ class ApiClient {
         !base.hasAuthority ||
         !['https', 'http'].contains(base.scheme) ||
         base.userInfo.isNotEmpty) {
-      throw const ApiException(
-        'Chưa cấu hình máy chủ API. Cần API_BASE_URL trỏ đến backend QTJP.',
-      );
+      throw const ApiException('Dịch vụ chưa sẵn sàng. Vui lòng thử lại sau.');
     }
     if (kReleaseMode && base.scheme != 'https') {
       throw const ApiException(
@@ -157,7 +155,7 @@ class ApiClient {
       );
     } on SocketException {
       throw const ApiException(
-        'Không kết nối được backend QTJP. Nếu đang chạy qua USB, hãy giữ backend và kết nối USB hoạt động.',
+        'Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.',
       );
     } on HandshakeException {
       throw const ApiException('Không thể xác minh kết nối HTTPS của máy chủ.');

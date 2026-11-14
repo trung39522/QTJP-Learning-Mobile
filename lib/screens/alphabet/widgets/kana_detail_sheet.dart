@@ -147,8 +147,8 @@ class _KanaDetailSheetState extends State<KanaDetailSheet>
                       child: Text(
                         '${_index + 1} / ${allKana.length}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: QTJPColors.muted,
+                        style: TextStyle(
+                          color: context.qtjp.muted,
                           fontSize: 12,
                         ),
                       ),
@@ -168,25 +168,25 @@ class _KanaDetailSheetState extends State<KanaDetailSheet>
                 Text(
                   _text,
                   key: const ValueKey('kana-detail-character'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 48,
-                    color: QTJPColors.navy,
+                    color: context.qtjp.heading,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   _current.romaji,
                   key: const ValueKey('kana-detail-romaji'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 24,
-                    color: QTJPColors.blue,
+                    color: context.qtjp.blue,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '${widget.script == KanaScript.hiragana ? 'Katakana' : 'Hiragana'}: $counterpart',
-                  style: const TextStyle(color: QTJPColors.muted),
+                  style: TextStyle(color: context.qtjp.muted),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -256,10 +256,10 @@ class _KanaDetailSheetState extends State<KanaDetailSheet>
                     context: context,
                     applicationName: 'QTJP Learning',
                   ),
-                  child: const Text(
+                  child: Text(
                     'Nét viết: KanjiVG · CC BY-SA 3.0',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: QTJPColors.muted, fontSize: 11),
+                    style: TextStyle(color: context.qtjp.muted, fontSize: 11),
                   ),
                 ),
               ],

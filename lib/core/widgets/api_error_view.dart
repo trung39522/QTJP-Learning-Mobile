@@ -20,7 +20,7 @@ class ApiErrorView extends StatelessWidget {
           Icon(
             needsLogin ? Icons.lock_outline : Icons.cloud_off_outlined,
             size: 42,
-            color: QTJPColors.blue,
+            color: context.qtjp.blue,
           ),
           const SizedBox(height: 12),
           Text(

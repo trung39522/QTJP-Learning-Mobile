@@ -29,6 +29,25 @@ class AppController extends ChangeNotifier {
     String password, {
     bool replaceOtherSession = false,
     bool remember = false,
+  }) => _signIn('/api/users/login', {
+    'username': username.trim(),
+    'password': password,
+    'replaceOtherSession': replaceOtherSession,
+  }, remember: remember);
+
+  Future<void> loginWithGoogle(
+    String credential, {
+    bool replaceOtherSession = false,
+    bool remember = false,
+  }) => _signIn('/api/users/google-login', {
+    'credential': credential,
+    'replaceOtherSession': replaceOtherSession,
+  }, remember: remember);
+
+  Future<void> _signIn(
+    String path,
+    Map<String, dynamic> body, {
+    required bool remember,
   }) async {
     final generation = ++_generation;
     if (restoring) {
@@ -38,17 +57,7 @@ class AppController extends ChangeNotifier {
       api.token = null;
       notifyListeners();
     }
-    final data = jsonObject(
-      await api.request(
-        'POST',
-        '/api/users/login',
-        body: {
-          'username': username.trim(),
-          'password': password,
-          'replaceOtherSession': replaceOtherSession,
-        },
-      ),
-    );
+    final data = jsonObject(await api.request('POST', path, body: body));
     if (generation != _generation) return;
     final token = data['token'];
     if (token is! String || token.isEmpty || data['id'] == null) {
@@ -79,7 +88,7 @@ class AppController extends ChangeNotifier {
       } catch (_) {
         if (!_disposed && session == api.sessionVersion) {
           if (token != null) rememberSession = false;
-          sessionNotice = 'Không truy cập được kho phiên bảo mật. Phiên hiện tại chỉ nên dùng trong lần mở ứng dụng này.';
+          sessionNotice = 'Không thể giữ đăng nhập trên thiết bị này. Bạn vẫn có thể tiếp tục học.';
           notifyListeners();
         }
       }

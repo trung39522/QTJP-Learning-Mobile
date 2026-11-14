@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
+import '../assistant/kyuto_assistant_host.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/qtjp_colors.dart';
+import '../../core/widgets/appearance_tile.dart';
 import '../auth/account_form_screen.dart';
+import '../home/widgets/home_account_avatar.dart';
+import 'models/account_presentation.dart';
 import 'profile_editor_screen.dart';
+import 'widgets/account_settings_group.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -12,191 +20,213 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final base = Uri.tryParse(app.api.baseUrl);
-    final avatar = base?.resolve(app.user?['avatarUrl']?.toString() ?? '');
-    final avatarValid =
-        app.isAuthenticated &&
-        (app.user?['avatarUrl']?.toString().isNotEmpty ?? false) &&
-        avatar != null &&
-        base != null &&
-        ['https', 'http'].contains(base.scheme) &&
-        ['https', 'http'].contains(avatar.scheme) &&
-        avatar.origin == base.origin;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cá nhân')),
+    final account = AccountPresentation(app.user);
+    final email = app.user?['email']?.toString().trim() ?? '';
+    return KyutoScaffold(
+      appBar: AppBar(title: const Text('Hồ sơ')),
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+              constraints: const BoxConstraints(maxWidth: 540),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 24),
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: QTJPColors.softBlue,
-                    foregroundImage: avatarValid
-                        ? NetworkImage(avatar.toString())
-                        : null,
-                    onForegroundImageError: avatarValid ? (_, _) {} : null,
-                    child: const Icon(
-                      Icons.person_outline_rounded,
-                      size: 48,
-                      color: QTJPColors.navy,
+                  Container(
+                    key: const ValueKey('profile-summary'),
+                    padding: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: context.qtjp.surface,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: context.qtjp.border),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    app.isAuthenticated
-                        ? 'Xin chào, ${app.username}'
-                        : 'Hành trình của bạn',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: QTJPColors.navyDark,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    app.isAuthenticated
-                        ? 'Bạn đã kết nối tài khoản website. Bộ thẻ, bài ngữ pháp và tiến độ flashcard sử dụng chung backend QTJP.'
-                        : 'Đăng nhập để tải bộ thẻ, học ngữ pháp và lưu tiến độ bằng tài khoản QTJP Learning.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: QTJPColors.muted,
-                      height: 1.6,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  if (app.isAuthenticated) ...[
-                    Chip(
-                      label: Text(
-                        'Gói tài khoản: ${app.user?['membership'] ?? 'FREE'}',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      leading: const Icon(Icons.workspace_premium_outlined),
-                      title: const Text('Nâng cấp / gia hạn VIP'),
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.vip),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.auto_awesome),
-                      title: const Text('Hỏi trợ lý AI Kyuto'),
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.assistant),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.edit_outlined),
-                      title: const Text('Chỉnh sửa hồ sơ'),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ProfileEditorScreen(),
-                        ),
-                      ),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.password),
-                      title: const Text('Đổi mật khẩu'),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AccountFormScreen(
-                            form: AccountForm.password,
+                    child: Row(
+                      children: [
+                        const HomeAccountAvatar(radius: 30, plain: true),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                app.isAuthenticated
+                                    ? 'Xin chào, ${account.name}'
+                                    : 'Chào mừng bạn',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: context.qtjp.heading,
+                                  fontSize: 18,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (app.isAuthenticated) ...[
+                                const SizedBox(height: 7),
+                                Text(
+                                  account.statusAt(DateTime.now()),
+                                  style: TextStyle(
+                                    color: account.vipAt(DateTime.now())
+                                        ? const Color(0xFFB58C0A)
+                                        : context.qtjp.muted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (email.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      email,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: context.qtjp.muted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ] else
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    'Lưu tiến độ học tập của bạn.',
+                                    style: TextStyle(
+                                      color: context.qtjp.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.devices),
-                      title: const Text('Thiết bị đăng nhập'),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AccountSessionsScreen(),
+                  ),
+                  if (app.isAuthenticated) ...[
+                    AccountSettingsGroup(
+                      title: 'TÀI KHOẢN',
+                      children: [
+                        AccountSettingTile(
+                          title: 'Chỉnh sửa hồ sơ',
+                          subtitle: 'Ảnh đại diện và thông tin cá nhân',
+                          icon: Icons.person_outline_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ProfileEditorScreen(),
+                            ),
+                          ),
+                        ),
+                        AccountSettingTile(
+                          title: 'Nâng cấp / gia hạn VIP',
+                          subtitle: 'Quản lý gói thành viên',
+                          icon: Icons.workspace_premium_outlined,
+                          onTap: () =>
+                              Navigator.pushNamed(context, AppRoutes.vip),
+                        ),
+                      ],
+                    ),
+                    AccountSettingsGroup(
+                      title: 'BẢO MẬT',
+                      children: [
+                        AccountSettingTile(
+                          title: 'Đổi mật khẩu',
+                          icon: Icons.lock_outline_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AccountFormScreen(
+                                form: AccountForm.password,
+                              ),
+                            ),
+                          ),
+                        ),
+                        AccountSettingTile(
+                          title: 'Thiết bị đăng nhập',
+                          icon: Icons.devices_rounded,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AccountSessionsScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    FilledButton.icon(
+                      key: const ValueKey('profile-login'),
+                      onPressed: app.restoring
+                          ? null
+                          : () => Navigator.pushNamed(context, AppRoutes.login),
+                      icon: const Icon(Icons.login_rounded),
+                      label: const Text('Đăng nhập'),
+                    ),
+                    TextButton(
+                      onPressed: app.restoring
+                          ? null
+                          : () async {
+                              final navigator = Navigator.of(context);
+                              final result = await navigator.pushNamed(
+                                AppRoutes.register,
+                              );
+                              if (navigator.mounted &&
+                                  result is String &&
+                                  !app.isAuthenticated) {
+                                await navigator.pushNamed(AppRoutes.login);
+                              }
+                            },
+                      child: const Text('Tạo tài khoản mới'),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  AccountSettingsGroup(
+                    title: 'CÀI ĐẶT',
+                    children: [
+                      const AppearanceTile(),
+                      AccountSettingTile(
+                        title: 'Hỏi trợ lý AI Kyuto',
+                        icon: Icons.auto_awesome_outlined,
+                        onTap: () => KyutoAssistantScope.show(context),
+                      ),
+                    ],
+                  ),
+                  if (app.restoring) const LinearProgressIndicator(),
+                  if (app.sessionNotice != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        app.sessionNotice!,
+                        style: TextStyle(
+                          color: context.qtjp.muted,
+                          fontSize: 13,
                         ),
                       ),
                     ),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => app.logout(),
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Đăng xuất'),
+                  if (!app.isAuthenticated &&
+                      app.sessionNotice != null &&
+                      app.supportsRememberSession)
+                    TextButton(
+                      onPressed: app.restoring ? null : app.restoreSession,
+                      child: const Text('Thử đăng nhập lại'),
+                    ),
+                  if (app.isAuthenticated)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.error
+                              .withValues(alpha: .35),
+                        ),
                       ),
+                      onPressed: () => app.logout(),
+                      icon: const Icon(Icons.logout_rounded, size: 20),
+                      label: const Text('Đăng xuất'),
                     ),
-                  ] else
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        key: const ValueKey('profile-login'),
-                        onPressed: app.restoring
-                            ? null
-                            : () =>
-                                  Navigator.of(context)
-                                      .pushNamed(AppRoutes.login),
-                        icon: const Icon(Icons.login_rounded),
-                        label: const Text('Đăng nhập'),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  if (app.restoring) const LinearProgressIndicator(),
-                  if (app.sessionNotice != null) ...[
-                    Text(app.sessionNotice!),
-                    if (!app.isAuthenticated && app.supportsRememberSession)
-                      TextButton(
-                        onPressed: app.restoring ? null : app.restoreSession,
-                        child: const Text('Thử khôi phục phiên'),
-                      ),
-                  ],
-                  Text(
-                    app.isAuthenticated
-                        ? app.rememberSession
-                              ? 'Phiên được giữ trong kho bảo mật của thiết bị. Không lưu mật khẩu.'
-                              : 'Phiên chỉ lưu trong bộ nhớ; đóng hẳn ứng dụng cần đăng nhập lại.'
-                        : 'Bạn đang khám phá ứng dụng với tư cách khách.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: QTJPColors.muted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Máy chủ dữ liệu',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: QTJPColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    app.api.baseUrl.isEmpty
-                        ? 'Chưa cấu hình API_BASE_URL'
-                        : base?.replace(userInfo: '').toString() ??
-                              'Cấu hình máy chủ không hợp lệ',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: QTJPColors.muted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Bản phát triển qua USB cần backend trên máy tính đang chạy. Bảng chữ cái và nét viết vẫn dùng được ngoại tuyến.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: QTJPColors.muted,
-                      height: 1.6,
-                      fontSize: 12,
-                    ),
-                  ),
                 ],
               ),
             ),

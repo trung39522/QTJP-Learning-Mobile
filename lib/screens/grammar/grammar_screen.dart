@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
+
+import 'dart:async';
+
+import '../alphabet/services/kana_speech.dart';
+import 'widgets/grammar_point_card.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/qtjp_colors.dart';
 import '../../core/widgets/api_error_view.dart';
+import '../../core/widgets/qtjp_feature_intro.dart';
 import '../home/widgets/jlpt_level_selector.dart';
 import 'grammar_repository.dart';
+import 'conjugation_screen.dart';
 import '../ai/learning_ai_repository.dart';
 import '../ai/learning_ai_screen.dart';
 
@@ -36,7 +45,7 @@ class _GrammarScreenState extends State<GrammarScreen> {
   void _reload() => setState(() => _lessons = _repository.lessons(_level));
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(
       title: const Text('Ngữ pháp tiếng Nhật'),
       actions: [
@@ -52,104 +61,119 @@ class _GrammarScreenState extends State<GrammarScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Học theo giáo trình QTJP',
-                      style: TextStyle(
-                        color: QTJPColors.navy,
-                        fontSize: 25,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      key: const ValueKey('grammar-ai'),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LearningAiScreen(
-                            tool: LearningAiTool.grammar,
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const QTJPFeatureIntro(QTJPFeature.grammar),
+                      OutlinedButton.icon(
+                        key: const ValueKey('grammar-conjugation'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ConjugationScreen(),
                           ),
                         ),
+                        icon: const Icon(Icons.table_chart_outlined),
+                        label: const Text('Bảng chia 12 thể động từ'),
                       ),
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('Tra mẫu / phân tích câu bằng AI'),
-                    ),
-                    JlptLevelSelector(
-                      selectedLevel: _level,
-                      onSelected: (level) {
-                        _level = level;
-                        _reload();
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Text('Cấp độ đang chọn: $_level'),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _lessons,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (snapshot.hasError) {
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.all(20),
-                        child: ApiErrorView(
-                          error: snapshot.error!,
-                          onRetry: _reload,
-                        ),
-                      );
-                    }
-                    final lessons = snapshot.data ?? [];
-                    if (lessons.isEmpty) {
-                      return Center(
-                        child: Text('Máy chủ chưa có bài học $_level.'),
-                      );
-                    }
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      itemCount: lessons.length,
-                      itemBuilder: (context, index) {
-                        final lesson = lessons[index];
-                        return Card(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              child: Text(jsonText(lesson, 'lessonNumber')),
-                            ),
-                            title: Text(
-                              jsonText(lesson, 'title'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            subtitle: Text(jsonText(lesson, 'description')),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => GrammarLessonScreen(
-                                  id: jsonText(lesson, 'id'),
-                                  repository: _repository,
-                                ),
-                              ),
+                      OutlinedButton.icon(
+                        key: const ValueKey('grammar-ai'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LearningAiScreen(
+                              tool: LearningAiTool.grammar,
                             ),
                           ),
-                        );
-                      },
-                    );
-                  },
+                        ),
+                        icon: const Icon(Icons.auto_awesome),
+                        label: const Text('Tra mẫu / phân tích câu bằng AI'),
+                      ),
+                      JlptLevelSelector(
+                        selectedLevel: _level,
+                        onSelected: (level) {
+                          _level = level;
+                          _reload();
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Text('Cấp độ đang chọn: $_level'),
+                    ],
+                  ),
                 ),
               ),
             ],
+            body: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _lessons,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: ApiErrorView(
+                      error: snapshot.error!,
+                      onRetry: _reload,
+                    ),
+                  );
+                }
+                final lessons = snapshot.data ?? [];
+                if (lessons.isEmpty) {
+                  return Center(child: Text('Chưa có bài học cho $_level.'));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  itemCount: lessons.length,
+                  itemBuilder: (context, index) {
+                    final lesson = lessons[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(color: context.qtjp.border),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        leading: CircleAvatar(
+                          backgroundColor: context.qtjp.soft,
+                          child: Text(
+                            jsonText(lesson, 'lessonNumber'),
+                            style: TextStyle(
+                              color: context.qtjp.heading,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          jsonText(lesson, 'title'),
+                          style: TextStyle(
+                            color: context.qtjp.heading,
+                            fontSize: 17,
+                            height: 1.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => GrammarLessonScreen(
+                              id: jsonText(lesson, 'id'),
+                              repository: _repository,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -172,6 +196,9 @@ class GrammarLessonScreen extends StatefulWidget {
 class _GrammarLessonScreenState extends State<GrammarLessonScreen> {
   Future<Map<String, dynamic>>? _lesson;
   int? _sessionVersion;
+  final _speech = DeviceKanaSpeech();
+  final _anchors = <int, GlobalKey>{};
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -185,8 +212,33 @@ class _GrammarLessonScreenState extends State<GrammarLessonScreen> {
   void _reload() =>
       setState(() => _lesson = widget.repository.lesson(widget.id));
 
+  Future<void> _speak(String text) async {
+    if (text.isEmpty) return;
+    try {
+      await _speech.speak(text);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is KanaSpeechFailure
+                  ? error.message
+                  : 'Chưa thể phát âm. Hãy thử lại.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
+  void dispose() {
+    unawaited(_speech.stop());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(title: const Text('Chi tiết ngữ pháp')),
     body: SafeArea(
       top: false,
@@ -205,80 +257,111 @@ class _GrammarLessonScreenState extends State<GrammarLessonScreen> {
           final lesson = snapshot.data!;
           final points = jsonObjects(lesson['grammarPoints'] ?? []);
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 760),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      '${jsonText(lesson, 'level')} · Bài ${jsonText(lesson, 'lessonNumber')}',
-                      style: const TextStyle(
-                        color: QTJPColors.red,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      jsonText(lesson, 'title'),
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
                         color: QTJPColors.navy,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${jsonText(lesson, 'level')} · Bài ${jsonText(lesson, 'lessonNumber')}',
+                            style: const TextStyle(
+                              color: Color(0xFFA9CFF0),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            jsonText(lesson, 'title'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w900,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '${points.length} mẫu ngữ pháp',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (points.isEmpty)
                       const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text('Bài học chưa có nội dung trên máy chủ.'),
-                      ),
-                    for (final point in points)
-                      Card(
-                        margin: const EdgeInsets.only(top: 20),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                jsonText(point, 'pattern'),
-                                style: const TextStyle(
-                                  fontSize: 25,
-                                  color: QTJPColors.navy,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              _paragraph(jsonText(point, 'meaning')),
-                              for (final structure
-                                  in (point['structure'] as List? ?? []))
-                                _paragraph(structure.toString()),
-                              _paragraph(jsonText(point, 'usage')),
-                              ..._examples(point['examples']),
-                              for (final usageCase in jsonObjects(
-                                point['usageCases'] ?? [],
-                              )) ...[
-                                _paragraph(
-                                  jsonText(usageCase, 'title'),
-                                  emphasized: true,
-                                ),
-                                _paragraph(jsonText(usageCase, 'usage')),
-                                ..._examples(usageCase['examples']),
-                                for (final note
-                                    in (usageCase['notes'] as List? ?? []))
-                                  _paragraph('Lưu ý: $note'),
-                              ],
-                              for (final note
-                                  in (point['notes'] as List? ?? []))
-                                _paragraph('Lưu ý: $note'),
-                              if ((point['relatedPatterns'] as List? ?? [])
-                                  .isNotEmpty)
-                                _paragraph(
-                                  'Liên quan: ${(point['relatedPatterns'] as List).join(' · ')}',
-                                ),
-                            ],
-                          ),
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'Bài học chưa có nội dung.',
+                          textAlign: TextAlign.center,
                         ),
+                      ),
+                    if (points.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      Text(
+                        'Trong bài học này',
+                        style: TextStyle(
+                          color: context.qtjp.heading,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final (index, point) in points.indexed)
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: MediaQuery.sizeOf(context).width - 64,
+                              ),
+                              child: ActionChip(
+                                label: Text(
+                                  '${index + 1}. ${jsonText(point, 'pattern')}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onPressed: () {
+                                  final anchor =
+                                      _anchors[index]?.currentContext;
+                                  if (anchor != null) {
+                                    unawaited(
+                                      Scrollable.ensureVisible(
+                                        anchor,
+                                        duration: const Duration(
+                                          milliseconds: 220,
+                                        ),
+                                        alignment: .02,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                    for (final (index, point) in points.indexed)
+                      GrammarPointCard(
+                        key: _anchors.putIfAbsent(index, GlobalKey.new),
+                        point: point,
+                        number: index + 1,
+                        onSpeak: _speak,
                       ),
                   ],
                 ),
@@ -289,28 +372,4 @@ class _GrammarLessonScreenState extends State<GrammarLessonScreen> {
       ),
     ),
   );
-
-  Widget _paragraph(String text, {bool emphasized = false}) => text.isEmpty
-      ? const SizedBox.shrink()
-      : Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: SelectableText(
-            text,
-            style: TextStyle(
-              height: 1.7,
-              fontWeight: emphasized ? FontWeight.w800 : FontWeight.normal,
-            ),
-          ),
-        );
-
-  List<Widget> _examples(Object? data) => [
-    for (final example in jsonObjects(data ?? [])) ...[
-      _paragraph(
-        jsonObjects(example['segments'] ?? [])
-            .map((s) => jsonText(s, 'text'))
-            .join(),
-      ),
-      _paragraph(jsonText(example, 'translation')),
-    ],
-  ];
 }

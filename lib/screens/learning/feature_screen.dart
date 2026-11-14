@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../core/theme/qtjp_colors.dart';
 import '../home/models/home_feature_item.dart';
 import '../home/widgets/jlpt_level_selector.dart';
@@ -23,7 +25,7 @@ class FeatureScreen extends StatelessWidget {
         ? QTJPColors.red
         : QTJPColors.blue;
 
-    return Scaffold(
+    return KyutoScaffold(
       appBar: AppBar(title: Text(feature.title)),
       body: SafeArea(
         top: false,
@@ -56,8 +58,8 @@ class FeatureScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         Text(
                           feature.subtitle,
-                          style: const TextStyle(
-                            color: QTJPColors.navyDark,
+                          style: TextStyle(
+                            color: context.qtjp.heading,
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
                           ),
@@ -65,8 +67,8 @@ class FeatureScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(
                           feature.description,
-                          style: const TextStyle(
-                            color: QTJPColors.muted,
+                          style: TextStyle(
+                            color: context.qtjp.muted,
                             fontSize: 15,
                             height: 1.6,
                           ),
@@ -79,8 +81,8 @@ class FeatureScreen extends StatelessWidget {
                     Text(
                       'Cấp độ đang chọn: $selectedLevel',
                       key: const ValueKey('feature-selected-level'),
-                      style: const TextStyle(
-                        color: QTJPColors.navy,
+                      style: TextStyle(
+                        color: context.qtjp.heading,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -93,14 +95,14 @@ class FeatureScreen extends StatelessWidget {
                     ],
                   ],
                   const SizedBox(height: 28),
-                  const Card(
+                  Card(
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Column(
                         children: [
                           Icon(
                             Icons.auto_stories_outlined,
-                            color: QTJPColors.blue,
+                            color: context.qtjp.blue,
                             size: 36,
                           ),
                           SizedBox(height: 12),
@@ -108,7 +110,7 @@ class FeatureScreen extends StatelessWidget {
                             'Nội dung đang được chuẩn bị',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: QTJPColors.navy,
+                              color: context.qtjp.heading,
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                             ),
@@ -119,7 +121,7 @@ class FeatureScreen extends StatelessWidget {
                             'Hãy tiếp tục khám phá các mục học tập của QTJP.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: QTJPColors.muted,
+                              color: context.qtjp.muted,
                               height: 1.6,
                             ),
                           ),

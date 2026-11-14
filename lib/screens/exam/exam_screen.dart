@@ -2,19 +2,29 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../assistant/kyuto_assistant_host.dart';
+
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
+import '../../core/theme/qtjp_colors.dart';
+import '../../core/widgets/qtjp_feature_intro.dart';
 import '../../core/widgets/api_error_view.dart';
 import '../home/widgets/jlpt_level_selector.dart';
 import 'exam_listening_player.dart';
 import 'exam_question_view.dart';
 import 'exam_repository.dart';
+import 'widgets/exam_presentation.dart';
+import 'widgets/exam_question_navigator.dart';
+import 'widgets/exam_result_dashboard.dart';
 
 enum _ExamPage { catalog, detail, taking, result }
 
 class ExamScreen extends StatefulWidget {
   const ExamScreen({
     required this.initialLevel,
+    this.embedded = false,
     this.onLevelChanged,
     this.onTakingChanged,
     this.audioFactory,
@@ -22,6 +32,7 @@ class ExamScreen extends StatefulWidget {
     super.key,
   });
   final String initialLevel;
+  final bool embedded;
   final ValueChanged<String>? onLevelChanged;
   final ValueChanged<bool>? onTakingChanged;
   final ExamAudio Function()? audioFactory;
@@ -46,7 +57,35 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
   bool _mustSync = false;
   int _index = 0;
   bool _takingReported = false;
+  KyutoAssistantController? _assistant;
   final _scroll = ScrollController();
+  final _clock = ValueNotifier<int>(0);
+  final _scaffold = GlobalKey<ScaffoldState>();
+  final _questionAnchor = GlobalKey();
+  double _questionDrag = 0;
+
+  void _selectQuestion(int index) {
+    final count = _attempt?.questions.length ?? 0;
+    if (_busy || index < 0 || index >= count || index == _index) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _index = index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final anchor = _questionAnchor.currentContext;
+      if (mounted && anchor != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            anchor,
+            alignment: 0,
+            duration: const Duration(milliseconds: 180),
+          ),
+        );
+      }
+    });
+  }
+
+  void _scrollToTop() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
+  });
   DateTime get _now => widget.now?.call() ?? DateTime.now();
   void _reportTaking(bool value) {
     if (_takingReported == value) return;
@@ -62,7 +101,7 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _attempt == null || !_app.isAuthenticated) return;
-      setState(() {});
+      _clock.value++;
       final attempt = _attempt!;
       if (!_busy &&
           attempt.deadline != null &&
@@ -78,6 +117,7 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _app = AppScope.of(context);
+    _assistant = KyutoAssistantScope.maybeOf(context);
     _repository = ExamRepository(_app.api);
     if (_session != _app.api.sessionVersion) {
       _session = _app.api.sessionVersion;
@@ -167,12 +207,19 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     jsonObjects(exam['sections'] ?? []);
     _detail = detail;
     _page = _ExamPage.detail;
+    _scrollToTop();
     _reportTaking(true);
     await _loadDocument(jsonText(exam, 'examJsonUrl'), session);
   });
 
   Future<void> _acceptAttempt(ExamAttempt attempt, int session) async {
     if (!_current(session)) return;
+    final phaseChanged =
+        _attempt?.id != attempt.id ||
+        _attempt?.section?['sectionId'] != attempt.section?['sectionId'] ||
+        (_attempt?.breakState != null) != (attempt.breakState != null) ||
+        _page != _ExamPage.taking;
+    if (phaseChanged || attempt.submitted) _scrollToTop();
     if (attempt.submitted) {
       _reportTaking(true);
       _attempt = null;
@@ -338,9 +385,11 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _assistant?.setExamActive(this, false);
     WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
     _scroll.dispose();
+    _clock.dispose();
     super.dispose();
   }
 
@@ -365,7 +414,7 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
   );
 
   List<Widget> _catalog() => [
-    _title('Luyện đề JLPT'),
+    const QTJPFeatureIntro(QTJPFeature.exam),
     Text(
       'Cấp độ đang chọn: $_level',
       key: const ValueKey('feature-selected-level'),
@@ -384,17 +433,21 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     ),
     if (_loaded && _exams.isEmpty)
       _line('Máy chủ chưa có đề $_level đã xuất bản.'),
-    for (final exam in _exams)
-      Card(
-        child: ListTile(
-          key: ValueKey('exam-${exam['id']}'),
-          title: Text(jsonText(exam, 'title')),
-          subtitle: Text(
-            '${exam['level']} · ${exam['totalQuestions']} câu · ${((exam['totalDurationSeconds'] as num? ?? 0) / 60).ceil()} phút${exam['progress'] != null ? ' · Đang làm' : ''}',
+    if (_loaded)
+      Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Text(
+          '${_exams.length} đề thi · $_level',
+          style: TextStyle(
+            color: context.qtjp.heading,
+            fontWeight: FontWeight.w800,
           ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: _busy ? null : () => _openDetail(examId(exam['id'])),
         ),
+      ),
+    for (final exam in _exams)
+      ExamCatalogCard(
+        exam: exam,
+        onTap: _busy ? null : () => _openDetail(examId(exam['id'])),
       ),
     _title('Lịch sử làm bài'),
     if (_loaded && !_history.any((h) => h['level'] == _level))
@@ -430,11 +483,36 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     return [
       _title(jsonText(exam, 'title')),
       _line(jsonText(detail, 'description')),
-      for (final rule in detail['rules'] as List? ?? []) _line('• $rule'),
-      for (final section in jsonObjects(exam['sections'] ?? []))
-        _line(
-          '${section['name']} · ${((section['durationSeconds'] as num? ?? 0) / 60).ceil()} phút · ${section['totalQuestions']} câu',
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.rule_rounded, color: context.qtjp.blue),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Trước khi bắt đầu',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ),
+              for (final rule in detail['rules'] as List? ?? [])
+                _line('• $rule'),
+            ],
+          ),
         ),
+      ),
+      _title('Cấu trúc đề thi'),
+      for (final (index, section) in jsonObjects(
+        exam['sections'] ?? [],
+      ).indexed)
+        ExamSectionCard(section: section, index: index + 1),
+      const SizedBox(height: 12),
       if (exam['structuredReady'] != true)
         _line('Đề chưa có đủ nội dung số hóa để làm bài trên ứng dụng.'),
       if (_mustSync)
@@ -474,15 +552,13 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     final section = attempt.section;
     if (section == null) {
       return [
-        _title('Giờ nghỉ giữa các phần'),
-        _line('Phần tiếp theo: ${attempt.breakState?['sectionName']}'),
-        _line('Còn lại: ${_time(attempt.deadline)}'),
-        _line(
-          'Bạn có thể bắt đầu sớm. Khi hết giờ nghỉ, máy chủ bắt đầu phần tiếp theo.',
-        ),
-        FilledButton(
-          onPressed: _busy || _mustSync ? null : _next,
-          child: const Text('Bắt đầu phần tiếp theo'),
+        ValueListenableBuilder(
+          valueListenable: _clock,
+          builder: (context, _, _) => ExamBreakCard(
+            state: attempt.breakState!,
+            remaining: _time(attempt.deadline),
+            onNext: _busy || _mustSync ? null : _next,
+          ),
         ),
       ];
     }
@@ -493,7 +569,50 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     final question = questions.isEmpty ? null : questions[_index];
     return [
       _title(jsonText(attempt.data, 'title')),
-      _line('${section['name']} · Còn lại: ${_time(attempt.deadline)}'),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.qtjp.soft,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            Text(
+              jsonText(section, 'name'),
+              style: TextStyle(
+                color: context.qtjp.heading,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.timer_outlined,
+                  size: 20,
+                  color: expired ? QTJPColors.red : context.qtjp.blue,
+                ),
+                const SizedBox(width: 8),
+                ValueListenableBuilder(
+                  valueListenable: _clock,
+                  builder: (context, _, _) => Text(
+                    _time(attempt.deadline),
+                    style: TextStyle(
+                      color: expired ? QTJPColors.red : context.qtjp.heading,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
       _line(
         'Đã lưu ${questions.where((q) => q['selectedOption'] != null).length}/${questions.length} câu của phần này.',
       ),
@@ -505,47 +624,132 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
         _line(
           'Đã hết giờ trên đồng hồ thiết bị. Đang đồng bộ trạng thái phần thi với máy chủ; bạn cũng có thể bấm tải lại.',
         ),
-      Wrap(
-        spacing: 6,
-        children: [
-          for (var i = 0; i < questions.length; i++)
-            ActionChip(
-              key: ValueKey('exam-question-$i'),
-              label: Text(
-                '${i + 1}${questions[i]['selectedOption'] != null ? ' ✓' : ''}${questions[i]['markedForReview'] == true ? ' ★' : ''}',
-              ),
-              onPressed: _busy ? null : () => setState(() => _index = i),
-            ),
-        ],
-      ),
       if (question != null) ...[
-        _title(
-          'Câu ${_index + 1}/${questions.length} · 問題 ${question['problemNo']}',
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Câu ${_index + 1}/${questions.length}',
+                style: TextStyle(
+                  color: context.qtjp.heading,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              key: const ValueKey('exam-question-menu'),
+              onPressed: () => _scaffold.currentState?.openEndDrawer(),
+              icon: const Icon(Icons.grid_view_rounded, size: 19),
+              label: const Text('Các câu'),
+            ),
+          ],
         ),
-        ExamQuestionView(
-          question: question,
-          repository: _repository,
-          document: _document,
-          documentUrl: _documentUrl,
-          enabled: enabled,
-          onAnswer: (option) => _save(question, option: option),
+        const SizedBox(height: 8),
+        GestureDetector(
+          key: _questionAnchor,
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragStart: (_) => _questionDrag = 0,
+          onHorizontalDragUpdate: (details) =>
+              _questionDrag += details.delta.dx,
+          onHorizontalDragEnd: (details) {
+            final speed = details.primaryVelocity ?? 0;
+            if (_questionDrag.abs() < 55 && speed.abs() < 300) return;
+            final direction = speed.abs() > 300 ? speed : _questionDrag;
+            _selectQuestion(_index + (direction < 0 ? 1 : -1));
+          },
+          child: Card(
+            key: const ValueKey('exam-question-card'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: context.qtjp.border),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '問題 ${question['problemNo']}',
+                          style: TextStyle(
+                            color: context.qtjp.blue,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        key: const ValueKey('exam-mark'),
+                        tooltip: question['markedForReview'] == true
+                            ? 'Bỏ đánh dấu'
+                            : 'Đánh dấu xem lại',
+                        isSelected: question['markedForReview'] == true,
+                        onPressed: enabled
+                            ? () => _save(
+                                question,
+                                marked: question['markedForReview'] != true,
+                              )
+                            : null,
+                        icon: const Icon(Icons.star_outline_rounded),
+                        selectedIcon: const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFD39A20),
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: question['markedForReview'] == true
+                              ? const Color(0xFFFFF3CD)
+                              : context.qtjp.soft,
+                          foregroundColor: context.qtjp.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ExamQuestionView(
+                    key: ValueKey(
+                      'question-content-${question['answerKeyId']}',
+                    ),
+                    question: question,
+                    repository: _repository,
+                    document: _document,
+                    documentUrl: _documentUrl,
+                    enabled: enabled,
+                    onAnswer: (option) => _save(question, option: option),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        OutlinedButton.icon(
-          key: const ValueKey('exam-mark'),
-          onPressed: enabled
-              ? () =>
-                    _save(question, marked: question['markedForReview'] != true)
-              : null,
-          icon: Icon(
-            question['markedForReview'] == true
-                ? Icons.star
-                : Icons.star_border,
-          ),
-          label: Text(
-            question['markedForReview'] == true
-                ? 'Bỏ đánh dấu'
-                : 'Đánh dấu xem lại',
-          ),
+        Row(
+          children: [
+            IconButton.outlined(
+              key: const ValueKey('exam-previous-question'),
+              tooltip: 'Câu trước',
+              onPressed: !_busy && _index > 0
+                  ? () => _selectQuestion(_index - 1)
+                  : null,
+              icon: const Icon(Icons.chevron_left_rounded),
+            ),
+            Expanded(
+              child: Text(
+                'Vuốt để chuyển câu',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: context.qtjp.muted, fontSize: 12),
+              ),
+            ),
+            IconButton.outlined(
+              key: const ValueKey('exam-next-question'),
+              tooltip: 'Câu sau',
+              onPressed: !_busy && _index + 1 < questions.length
+                  ? () => _selectQuestion(_index + 1)
+                  : null,
+              icon: const Icon(Icons.chevron_right_rounded),
+            ),
+          ],
         ),
       ] else
         _line(
@@ -553,16 +757,12 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
         ),
       if (_mustSync)
         _line(
-          'Chưa xác nhận được thao tác trước. Hãy đồng bộ lượt thi trước khi chọn đáp án hoặc chuyển phần.',
+          'Chưa xác nhận được thao tác trước. Nhấn biểu tượng tải lại ở góc trên để kiểm tra trước khi tiếp tục.',
         ),
       FilledButton(
         key: const ValueKey('exam-complete'),
         onPressed: enabled ? _complete : null,
         child: const Text('Kết thúc phần thi'),
-      ),
-      OutlinedButton(
-        onPressed: _busy ? null : _refreshAttempt,
-        child: const Text('Đồng bộ lượt thi'),
       ),
     ];
   }
@@ -596,24 +796,17 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
       ];
     }
     return [
-      _title(jsonText(result, 'title')),
-      _title(
-        '${result['correctCount']}/${result['totalQuestions']} câu đúng · ${result['scorePercent']}%',
-      ),
-      _line(
-        'Điểm luyện tập tham khảo: ${result['practiceScore']}/180. Đây không phải điểm JLPT chính thức.',
-      ),
-      _line(jsonText(result, 'teacherComment')),
-      for (final category in jsonObjects(result['categories'] ?? []))
-        _line(
-          '${category['category']}: ${category['correctCount']}/${category['totalQuestions']} câu đúng (${category['percent']}%)',
-        ),
-      for (final question in jsonObjects(result['answers'] ?? []))
-        Card(
+      ExamResultDashboard(
+        result: result,
+        answerBuilder: (question) => Card(
           child: ExpansionTile(
             key: ValueKey('exam-review-${question['answerKeyId']}'),
             title: Text(
-              '問題 ${question['problemNo']} · Câu ${question['questionNo']}${question['subQuestionNo'] == null ? '' : ' (${question['subQuestionNo']})'} · ${question['correct'] == true ? 'Đúng' : 'Chưa đúng'}',
+              '問題 ${question['problemNo']} · Câu ${question['questionNo']}${question['subQuestionNo'] == null ? '' : ' (${question['subQuestionNo']})'} · ${question['correct'] == true
+                  ? 'Đúng'
+                  : question['selectedOption'] == null
+                  ? 'Bỏ trống'
+                  : 'Chưa đúng'}',
             ),
             childrenPadding: const EdgeInsets.all(16),
             children: [
@@ -627,6 +820,7 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
             ],
           ),
         ),
+      ),
       OutlinedButton(
         onPressed: _busy ? null : _back,
         child: const Text('Về danh sách đề'),
@@ -634,106 +828,181 @@ class _ExamScreenState extends State<ExamScreen> with WidgetsBindingObserver {
     ];
   }
 
-  @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: _page == _ExamPage.catalog,
-    onPopInvokedWithResult: (didPop, _) {
-      if (!didPop && _page != _ExamPage.catalog) unawaited(_back());
-    },
-    child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Luyện đề JLPT'),
-        leading: _page == _ExamPage.catalog
-            ? null
-            : BackButton(onPressed: _back),
-        actions: [
-          IconButton(
-            tooltip: 'Tải lại',
-            onPressed: _busy
-                ? null
-                : () {
-                    if (_attempt != null) {
-                      unawaited(_refreshAttempt());
-                    } else if (_page == _ExamPage.detail) {
-                      unawaited(
-                        _openDetail(examId(jsonObject(_detail!['exam'])['id'])),
-                      );
-                    } else if (_result != null) {
-                      unawaited(_openResult(examId(_result!['attemptId'])));
-                    } else {
-                      unawaited(_loadCatalog());
-                    }
-                  },
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          controller: _scroll,
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: !_app.isAuthenticated
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ..._catalog(),
-                        ApiErrorView(
-                          error: const ApiException(
-                            'Đăng nhập để luyện đề và xem lịch sử JLPT.',
-                            status: 401,
-                          ),
-                          onRetry: _loadCatalog,
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_busy) const LinearProgressIndicator(),
-                        if (_error != null)
-                          ApiErrorView(
-                            error: _error!,
-                            onRetry: () {
-                              if (_attempt != null) {
-                                unawaited(_refreshAttempt());
-                              } else {
-                                unawaited(_loadCatalog());
-                              }
-                            },
-                          ),
-                        if (_documentError != null) ...[
-                          _line(
-                            'Chưa tải được tài liệu số hóa. Không tự thay nội dung của đề khác.',
-                          ),
-                          OutlinedButton(
-                            onPressed: _busy
-                                ? null
-                                : () => _run(
-                                    (session) => _loadDocument(
-                                      _documentUrl!,
-                                      session,
-                                      force: true,
-                                    ),
-                                  ),
-                            child: const Text('Tải lại tài liệu đề thi'),
-                          ),
-                        ],
-                        ...switch (_page) {
-                          _ExamPage.catalog => _catalog(),
-                          _ExamPage.detail => _detailView(),
-                          _ExamPage.taking => _taking(),
-                          _ExamPage.result => _resultView(),
-                        },
-                      ],
-                    ),
-            ),
+  Widget _refreshAction() => IconButton(
+    tooltip: 'Tải lại',
+    onPressed: _busy
+        ? null
+        : () {
+            if (_attempt != null) {
+              unawaited(_refreshAttempt());
+            } else if (_page == _ExamPage.detail) {
+              unawaited(
+                _openDetail(examId(jsonObject(_detail!['exam'])['id'])),
+              );
+            } else if (_result != null) {
+              unawaited(_openResult(examId(_result!['attemptId'])));
+            } else {
+              unawaited(_loadCatalog());
+            }
+          },
+    icon: const Icon(Icons.refresh),
+  );
+
+  Widget _embeddedToolbar() => Row(
+    children: [
+      if (_page != _ExamPage.catalog) BackButton(onPressed: _back),
+      Expanded(
+        child: Text(
+          'Luyện đề JLPT',
+          style: TextStyle(
+            color: context.qtjp.heading,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
-    ),
+      if (_page == _ExamPage.taking && _attempt?.section != null)
+        IconButton(
+          tooltip: 'Danh sách câu hỏi',
+          onPressed: () => _scaffold.currentState?.openEndDrawer(),
+          icon: const Icon(Icons.grid_view_rounded),
+        ),
+      _refreshAction(),
+    ],
   );
+
+  @override
+  Widget build(BuildContext context) {
+    _assistant?.setExamActive(this, _page == _ExamPage.taking);
+    return PopScope(
+      canPop: _page == _ExamPage.catalog,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _scaffold.currentState?.isEndDrawerOpen == true) {
+          _scaffold.currentState?.closeEndDrawer();
+          return;
+        }
+        if (!didPop && _page != _ExamPage.catalog) unawaited(_back());
+      },
+      child: KyutoScaffold(
+        scaffoldKey: _scaffold,
+        showAssistant: !widget.embedded,
+        endDrawer: _page == _ExamPage.taking && _attempt?.section != null
+            ? ExamQuestionNavigator(
+                questions: _attempt!.questions,
+                current: _index,
+                enabled: !_busy,
+                onClose: () => _scaffold.currentState?.closeEndDrawer(),
+                onSelected: (index) {
+                  _scaffold.currentState?.closeEndDrawer();
+                  _selectQuestion(index);
+                },
+              )
+            : null,
+        appBar: widget.embedded
+            ? null
+            : AppBar(
+                title: const Text('Luyện đề JLPT'),
+                leading: _page == _ExamPage.catalog
+                    ? null
+                    : BackButton(onPressed: _back),
+                actions: [
+                  if (_page == _ExamPage.taking && _attempt?.section != null)
+                    IconButton(
+                      tooltip: 'Danh sách câu hỏi',
+                      onPressed: () => _scaffold.currentState?.openEndDrawer(),
+                      icon: const Icon(Icons.grid_view_rounded),
+                    ),
+                  _refreshAction(),
+                ],
+              ),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              if (widget.embedded)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: _embeddedToolbar(),
+                ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: !_app.isAuthenticated
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ..._catalog(),
+                                ApiErrorView(
+                                  error: const ApiException(
+                                    'Đăng nhập để luyện đề và xem lịch sử JLPT.',
+                                    status: 401,
+                                  ),
+                                  onRetry: _loadCatalog,
+                                ),
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SizedBox(
+                                  height: 4,
+                                  child: _busy
+                                      ? const LinearProgressIndicator()
+                                      : null,
+                                ),
+                                if (_error != null)
+                                  ApiErrorView(
+                                    error: _error!,
+                                    onRetry: () {
+                                      if (_attempt != null) {
+                                        unawaited(_refreshAttempt());
+                                      } else {
+                                        unawaited(_loadCatalog());
+                                      }
+                                    },
+                                  ),
+                                if (_documentError != null) ...[
+                                  _line(
+                                    'Chưa tải được tài liệu số hóa. Không tự thay nội dung của đề khác.',
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _run(
+                                            (session) => _loadDocument(
+                                              _documentUrl!,
+                                              session,
+                                              force: true,
+                                            ),
+                                          ),
+                                    child: const Text(
+                                      'Tải lại tài liệu đề thi',
+                                    ),
+                                  ),
+                                ],
+                                ...switch (_page) {
+                                  _ExamPage.catalog => _catalog(),
+                                  _ExamPage.detail => _detailView(),
+                                  _ExamPage.taking => _taking(),
+                                  _ExamPage.result => _resultView(),
+                                },
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

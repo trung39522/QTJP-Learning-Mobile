@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/qtjp_colors.dart';
 import '../../core/theme/qtjp_spacing.dart';
@@ -10,10 +12,9 @@ import 'widgets/home_feature_carousel.dart';
 import 'widgets/home_section_header.dart';
 import 'widgets/japan_inspiration_gallery.dart';
 import 'widgets/jlpt_level_selector.dart';
-import 'widgets/kyuto_entry_button.dart';
 import 'widgets/learning_journey.dart';
-import 'widgets/qtjp_brand_header.dart';
 import 'widgets/qtjp_home_hero.dart';
+import 'widgets/home_ai_scroll.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -32,8 +33,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const Color navy = QTJPColors.navy;
-  static const Color muted = QTJPColors.muted;
+  Color get navy => context.qtjp.heading;
+  Color get muted => context.qtjp.muted;
 
   String get selectedLevel => widget.selectedLevel;
 
@@ -45,48 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openKyuto() {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return KyutoPreviewSheet(
-          onActionSelected: (action) {
-            Navigator.of(sheetContext).pop();
-            switch (action) {
-              case 'Tra từ vựng':
-                _openFeature('dictionary');
-              case 'Giải thích ngữ pháp':
-                _openFeature('grammar');
-              case 'Luyện đề JLPT':
-                _openFeature('exam');
-              default:
-                Navigator.of(context).pushNamed(AppRoutes.assistant);
-            }
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: const QTJPBrandHeader(),
-        actions: [
-          IconButton(
-            tooltip: 'Thông báo',
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.notifications),
-            icon: const Icon(Icons.notifications_none_rounded),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+    return KyutoScaffold(
+      showAssistant: false,
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -108,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   QTJPHomeHero(
                     onPrimaryPressed: widget.onStartLearning,
                     onAlphabetPressed: () => _openFeature('alphabet'),
+                    onFeaturePressed: _openFeature,
                   ),
                   const SizedBox(height: 27),
                   _buildSectionHeading('Chọn cấp độ JLPT', 'N5 đến N1'),
@@ -117,9 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     onSelected: widget.onLevelChanged,
                   ),
                   const SizedBox(height: 25),
-                  _buildSectionHeading(
-                    'Khám phá QTJP',
-                    'Lộ trình $selectedLevel',
+                  const HomeSectionHeader(
+                    kicker: 'KHÁM PHÁ QTJP LEARNING',
+                    title: 'Đầy đủ công cụ cho hành trình học tiếng Nhật',
+                    description: 'Vuốt hoặc dùng hai nút mũi tên để xem từng tiện ích theo dạng vòng cung.',
                   ),
                   const SizedBox(height: 14),
                   HomeFeatureCarousel(
@@ -127,6 +92,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     selectedLevel: selectedLevel,
                     onFeatureTap: (feature) => _openFeature(feature.id),
                   ),
+                  const SizedBox(height: 40),
+                  HomeAiScroll(onFeaturePressed: _openFeature),
                   const SizedBox(height: 40),
                   const HomeSectionHeader(
                     kicker: 'CẢM HỨNG TỪ NHẬT BẢN',
@@ -151,22 +118,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       _ => 'exam',
                     }),
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Nội dung học tập sẽ sớm khả dụng trên QTJP Mobile.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: muted.withValues(alpha: 0.95),
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
         ),
       ),
-      floatingActionButton: KyutoEntryButton(onPressed: _openKyuto),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -177,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Flexible(
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: navy,
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -185,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(subtitle, style: const TextStyle(color: muted, fontSize: 12)),
+        Text(subtitle, style: TextStyle(color: muted, fontSize: 12)),
       ],
     );
   }

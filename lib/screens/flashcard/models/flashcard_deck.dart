@@ -7,6 +7,9 @@ class FlashcardWord {
     required this.meaning,
     required this.example,
     required this.exampleVi,
+    this.hanViet = '',
+    this.partOfSpeech = '',
+    this.exampleFurigana = const [],
   });
 
   final int? id;
@@ -16,6 +19,9 @@ class FlashcardWord {
   final String meaning;
   final String example;
   final String exampleVi;
+  final String hanViet;
+  final String partOfSpeech;
+  final List<Map<String, dynamic>> exampleFurigana;
 }
 
 class FlashcardDeck {
@@ -27,6 +33,9 @@ class FlashcardDeck {
     required List<FlashcardWord> words,
     this.wordCount,
     this.isSample = false,
+    this.systemDeck = true,
+    this.ownerUserId,
+    this.category = '',
   }) : words = List.unmodifiable(words);
 
   final String id;
@@ -36,6 +45,9 @@ class FlashcardDeck {
   final List<FlashcardWord> words;
   final int? wordCount;
   final bool isSample;
+  final bool systemDeck;
+  final int? ownerUserId;
+  final String category;
   int get count => wordCount ?? words.length;
 
   FlashcardDeck withWords(List<FlashcardWord> value) => FlashcardDeck(
@@ -45,5 +57,8 @@ class FlashcardDeck {
     description: description,
     words: value,
     isSample: isSample,
+    systemDeck: systemDeck,
+    ownerUserId: ownerUserId,
+    category: category,
   );
 }

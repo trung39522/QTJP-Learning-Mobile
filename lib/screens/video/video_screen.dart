@@ -2,12 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/widgets/api_error_view.dart';
-import '../assistant/assistant_screen.dart';
-import '../home/widgets/jlpt_level_selector.dart';
+import '../../core/theme/qtjp_colors.dart';
+import '../assistant/kyuto_assistant_host.dart';
+import 'models/video_presentation.dart';
+import 'widgets/video_card.dart';
+import 'widgets/video_rail.dart';
+import 'widgets/video_catalog_widgets.dart';
 import 'learning_video_player.dart';
 import 'video_repository.dart';
 
@@ -32,6 +38,7 @@ class _VideoScreenState extends State<VideoScreen> {
   late String _level = widget.initialLevel;
   final _url = TextEditingController();
   final _controls = VideoControls();
+  final _scroll = ScrollController();
   int? _session;
   List<Map<String, dynamic>> _presets = [], _history = [];
   Map<String, dynamic>? _usage;
@@ -91,7 +98,12 @@ class _VideoScreenState extends State<VideoScreen> {
     try {
       await action(session);
     } catch (error) {
-      if (_current(session)) setState(() => _error = error);
+      if (_current(session)) {
+        setState(() => _error = error);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_current(session) && _scroll.hasClients) _scroll.jumpTo(0);
+        });
+      }
     } finally {
       if (_current(session)) {
         setState(() {
@@ -143,15 +155,16 @@ class _VideoScreenState extends State<VideoScreen> {
     _seekTarget = null;
     _seekUntil = null;
     _grammar.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_current(session) && _scroll.hasClients) _scroll.jumpTo(0);
+    });
     if (video.data['usage'] is Map<String, dynamic>) {
       _usage = jsonObject(video.data['usage']);
     }
   }
 
   Future<void> _open(int id, bool preset) => _run(
-    preset
-        ? 'Đang mở video mẫu; backend có thể cần tạo phụ đề…'
-        : 'Đang mở video…',
+    preset ? 'Đang mở video và chuẩn bị phụ đề…' : 'Đang mở video…',
     (session) async {
       try {
         _accept(await _repository.open(id, preset: preset), session);
@@ -200,9 +213,7 @@ class _VideoScreenState extends State<VideoScreen> {
       setState(() => _error = error);
       return;
     }
-    await _run('Backend đang phân tích video. Có thể mất vài phút…', (
-      session,
-    ) async {
+    await _run('Đang phân tích video. Có thể mất vài phút…', (session) async {
       try {
         _accept(await _repository.analyze(_url.text), session);
       } on ApiException catch (error) {
@@ -223,7 +234,7 @@ class _VideoScreenState extends State<VideoScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Phân tích lại video?'),
         content: const Text(
-          'Backend sẽ tạo lại nội dung phân tích. Giới hạn lượt và quyền truy cập do máy chủ kiểm tra.',
+          'Nội dung phân tích sẽ được tạo lại. Bạn có muốn tiếp tục?',
         ),
         actions: [
           TextButton(
@@ -302,31 +313,30 @@ class _VideoScreenState extends State<VideoScreen> {
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: Text(text, style: const TextStyle(height: 1.7)),
   );
-  List<Widget> _catalog() => [
-    ChoiceChip(
-      label: const Text('Tất cả'),
-      selected: _level == 'ALL',
-      onSelected: _busy ? null : (_) => _changeLevel('ALL'),
-    ),
-    JlptLevelSelector(selectedLevel: _level, onSelected: _changeLevel),
-    _line(
-      'Video mẫu có thể cần tạo phụ đề khi bạn bấm mở. Phân tích link riêng chỉ chạy khi bấm Phân tích video.',
-    ),
+  Future<void> _openVip() async {
+    final session = _app.api.sessionVersion;
+    await _controls.pause();
+    if (!mounted || !_current(session)) return;
+    await Navigator.pushNamed(context, AppRoutes.vip);
+    if (_current(session)) await _load();
+  }
+
+  Widget _usageCard() => VideoUsageCard(
+    usage: _usage,
+    loading: _busy && _usage == null,
+    error: _catalogErrors['Lượt AI'],
+    onRetry: _busy ? null : _load,
+    onVip: _app.isAuthenticated ? _openVip : null,
+  );
+
+  List<Widget> _catalogHeader() => [
     if (_app.isAuthenticated) ...[
-      TextField(
-        key: const ValueKey('video-url'),
+      _usageCard(),
+      VideoAnalysisCard(
         controller: _url,
         enabled: !_busy,
-        decoration: const InputDecoration(
-          labelText: 'Liên kết YouTube hoặc TikTok',
-          border: OutlineInputBorder(),
-        ),
-        autocorrect: false,
-      ),
-      FilledButton(
-        key: const ValueKey('video-analyze'),
-        onPressed: _busy || _uncertain ? null : _analyze,
-        child: const Text('Phân tích video bằng AI'),
+        onAnalyze: _busy || _uncertain ? null : _analyze,
+        working: _busy && _working != 'Đang tải video…' ? _working : null,
       ),
     ] else
       ApiErrorView(
@@ -336,46 +346,44 @@ class _VideoScreenState extends State<VideoScreen> {
         ),
         onRetry: _load,
       ),
-    _line(
-      _level == 'ALL' ? 'Video có sẵn · Tất cả cấp độ' : 'Video mẫu $_level',
+    const VideoSectionHeading(
+      'Video có sẵn',
+      description: 'Học cùng các video được hệ thống cung cấp theo trình độ.',
     ),
+    VideoLevelFilters(level: _level, onSelected: _busy ? null : _changeLevel),
+    const SizedBox(height: 14),
+    if (_busy && !_presetsLoaded) const VideoCardSkeleton(),
     if (_presetsLoaded && _presets.isEmpty)
-      _line('Máy chủ chưa có video mẫu ở cấp độ này.'),
-    for (final preset in _presets)
-      Card(
-        child: Column(
-          children: [
-            ListTile(
-              key: ValueKey('video-preset-${preset['id']}'),
-              title: Text(jsonText(preset, 'title')),
-              subtitle: Text('${preset['level']} · ${preset['platform']}'),
-              onTap: _busy || _uncertain || !_app.isAuthenticated
-                  ? null
-                  : () => _open(videoId(preset['id']), true),
-            ),
-            if (jsonText(preset, 'videoId').isNotEmpty)
-              TextButton.icon(
-                onPressed: _busy ? null : () => _previewPreset(preset),
-                icon: const Icon(Icons.play_circle_outline),
-                label: const Text('Xem video trước, chưa gọi AI'),
-              ),
-          ],
-        ),
-      ),
-    if (_app.isAuthenticated) ...[
-      _line('Lịch sử video của bạn'),
-      if (_historyLoaded && _history.isEmpty)
-        _line('Bạn chưa có video trong lịch sử.'),
-      for (final item in _history)
-        Card(
-          child: ListTile(
-            key: ValueKey('video-history-${item['id']}'),
-            title: Text(jsonText(item, 'title')),
-            onTap: _busy ? null : () => _open(videoId(item['id']), false),
-          ),
-        ),
-    ],
+      const VideoEmptyState('Máy chủ chưa có video mẫu ở cấp độ này.'),
   ];
+
+  List<Map<String, dynamic>> _unique(List<Map<String, dynamic>> items) {
+    final ids = <Object?>{};
+    return items.where((item) => ids.add(item['id'])).toList();
+  }
+
+  Widget _videoCard(Map<String, dynamic> item, bool preset) {
+    final metadata = VideoPresentation(item, baseUrl: _app.api.baseUrl);
+    return VideoCard(
+      key: ValueKey(
+        'video-card-${preset ? 'preset' : 'history'}-${item['id']}',
+      ),
+      video: metadata,
+      preset: preset,
+      compact: true,
+      onWatch: _busy || !_app.isAuthenticated
+          ? null
+          : preset
+          ? metadata.canPreview
+                ? () => _previewPreset(item)
+                : null
+          : () => _open(videoId(item['id']), false),
+      onAnalyze: _busy || _uncertain || !_app.isAuthenticated
+          ? null
+          : () => _open(videoId(item['id']), true),
+    );
+  }
+
   void _changeLevel(String level) {
     if (_busy || level == _level) return;
     setState(() {
@@ -391,20 +399,81 @@ class _VideoScreenState extends State<VideoScreen> {
     final subtitle = _subtitle;
     final explanation = subtitle == null ? null : _grammar[subtitle['id']];
     return [
-      Text(
-        jsonText(video.data, 'title'),
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-      ),
-      KeyedSubtree(
-        key: ValueKey('video-player-$_session-${video.id}'),
-        child:
-            widget.playerBuilder?.call(context, video, _controls, _position) ??
-            LearningVideoPlayer(
-              video: video,
-              controls: _controls,
-              onPosition: _position,
+      VideoSurface(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Text(
+                  VideoPresentation(video.data).sourceLabel,
+                  style: TextStyle(
+                    color: context.qtjp.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (VideoPresentation(video.data).level.isNotEmpty)
+                  Text(
+                    VideoPresentation(video.data).level,
+                    style: TextStyle(
+                      color: context.qtjp.heading,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+              ],
             ),
+            const SizedBox(height: 8),
+            Text(
+              jsonText(video.data, 'title'),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: context.qtjp.heading,
+                fontSize: 22,
+                height: 1.3,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (jsonText(video.data, 'description').isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  jsonText(video.data, 'description'),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: context.qtjp.muted,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: KeyedSubtree(
+          key: ValueKey('video-player-$_session-${video.id}'),
+          child:
+              widget.playerBuilder?.call(
+                context,
+                video,
+                _controls,
+                _position,
+              ) ??
+              LearningVideoPlayer(
+                video: video,
+                controls: _controls,
+                onPosition: _position,
+              ),
+        ),
+      ),
+      const SizedBox(height: 12),
       OutlinedButton(
         onPressed: _busy ? null : _closeVideo,
         child: const Text('Về danh sách video'),
@@ -424,20 +493,58 @@ class _VideoScreenState extends State<VideoScreen> {
         _line(
           'Máy chủ chưa trả phụ đề cho video này. Bạn vẫn có thể xem video gốc.',
         ),
-      Wrap(
-        spacing: 6,
-        children: [
-          for (var i = 0; i < video.subtitles.length; i++)
-            ChoiceChip(
+      const SizedBox(height: 12),
+      _usageCard(),
+      if (video.subtitles.isNotEmpty) ...[
+        const VideoSectionHeading(
+          'Phụ đề & luyện nghe',
+          description: 'Chọn câu để nghe, xem bản dịch và học trong ngữ cảnh.',
+        ),
+        SizedBox(
+          height: 52,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: video.subtitles.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (_, i) => ChoiceChip(
               label: Text('${i + 1}'),
               selected: _selected == i,
+              selectedColor: QTJPColors.navy,
+              labelStyle: TextStyle(
+                color: _selected == i ? Colors.white : QTJPColors.navy,
+              ),
               onSelected: _busy ? null : (_) => _seek(i),
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
       if (subtitle != null) ...[
-        _line(jsonText(subtitle, 'japanese')),
-        _line(jsonText(subtitle, 'vietnamese')),
+        const SizedBox(height: 12),
+        VideoSurface(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                jsonText(subtitle, 'japanese'),
+                style: TextStyle(
+                  color: context.qtjp.heading,
+                  fontSize: 21,
+                  height: 1.6,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                jsonText(subtitle, 'vietnamese'),
+                style: TextStyle(
+                  color: context.qtjp.muted,
+                  fontSize: 14,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
         OutlinedButton(
           key: const ValueKey('video-repeat'),
           onPressed: _busy ? null : () => _seek(_selected, sentence: true),
@@ -465,15 +572,11 @@ class _VideoScreenState extends State<VideoScreen> {
                   final question =
                       'Giải thích câu tiếng Nhật trong video: ${jsonText(subtitle, 'japanese')}';
                   if (!mounted) return;
-                  await Navigator.push(
+                  KyutoAssistantScope.show(
                     context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => AssistantScreen(
-                        initialMessage: question.length > 1000
-                            ? question.substring(0, 1000)
-                            : question,
-                      ),
-                    ),
+                    message: question.length > 1000
+                        ? question.substring(0, 1000)
+                        : question,
                   );
                 },
           icon: const Icon(Icons.auto_awesome),
@@ -481,9 +584,7 @@ class _VideoScreenState extends State<VideoScreen> {
         ),
         if (explanation != null) ...[
           if (jsonObjects(explanation['points'] ?? []).isEmpty)
-            _line(
-              'Backend chưa tìm thấy mẫu ngữ pháp cần giải thích cho câu này.',
-            ),
+            _line('Chưa tìm thấy mẫu ngữ pháp để giải thích cho câu này.'),
           for (final point in jsonObjects(explanation['points'] ?? []))
             Card(
               child: Padding(
@@ -525,90 +626,158 @@ class _VideoScreenState extends State<VideoScreen> {
   @override
   void dispose() {
     _url.dispose();
+    _scroll.dispose();
     unawaited(_controls.pause());
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: _video == null,
-    onPopInvokedWithResult: (didPop, result) {
-      if (!didPop) unawaited(_closeVideo());
-    },
-    child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Học qua video'),
-        actions: [
-          IconButton(
-            tooltip: 'Tải lại danh sách và lượt dùng',
-            onPressed: _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
+  List<Widget> _status() => [
+    if (_busy) ...[
+      const LinearProgressIndicator(minHeight: 2),
+      _line(_working ?? 'Đang xử lý…'),
+    ],
+    if (_error != null)
+      VideoSurface(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.info_outline_rounded,
+              color: QTJPColors.red,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _error is ApiException
+                    ? _error.toString()
+                    : 'Chưa tải được dữ liệu video. Hãy thử lại.',
+                style: const TextStyle(color: QTJPColors.red, height: 1.5),
+              ),
+            ),
+          ],
+        ),
       ),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+    for (final entry in _catalogErrors.entries.where(
+      (entry) => entry.key != 'Lượt AI',
+    ))
+      _line(
+        '${entry.key}: ${entry.value is ApiException ? entry.value : 'Chưa tải được. Hãy thử lại.'}',
+      ),
+    if (_catalogErrors.keys.any((key) => key != 'Lượt AI'))
+      OutlinedButton(
+        onPressed: _busy ? null : _load,
+        child: const Text('Thử tải lại dữ liệu video'),
+      ),
+    if (_uncertain)
+      OutlinedButton(
+        onPressed: _busy
+            ? null
+            : () async {
+                if (mounted) setState(() => _video = null);
+                await _load();
+              },
+        child: const Text('Kiểm tra lịch sử trước khi phân tích lại'),
+      ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = _unique(_presets), history = _unique(_history);
+    return PopScope(
+      canPop: _video == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(_closeVideo());
+      },
+      child: KyutoScaffold(
+        appBar: AppBar(
+          title: const Text('Học qua video'),
+          actions: [
+            IconButton(
+              tooltip: 'Tải lại danh sách và lượt dùng',
+              onPressed: _busy ? null : _load,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_busy) ...[
-                    const LinearProgressIndicator(),
-                    _line(_working ?? 'Đang xử lý…'),
-                  ],
-                  if (_error != null)
-                    _line(
-                      _error is ApiException
-                          ? _error.toString()
-                          : 'Chưa tải được dữ liệu video. Hãy thử lại.',
-                    ),
-                  for (final entry in _catalogErrors.entries)
-                    _line(
-                      '${entry.key}: ${entry.value is ApiException ? entry.value : 'Chưa tải được. Hãy thử lại.'}',
-                    ),
-                  if (_catalogErrors.isNotEmpty)
-                    OutlinedButton(
-                      onPressed: _busy ? null : _load,
-                      child: const Text('Thử tải lại dữ liệu video'),
-                    ),
-                  if (_usage != null)
-                    _line(
-                      _usage!['dailyLimit'] == -1 && _usage!['remaining'] == -1
-                          ? 'Theo máy chủ: không giới hạn lượt phân tích · Gói ${_usage!['membership']}'
-                          : 'Theo máy chủ: ${_usage!['remaining']} lượt phân tích còn lại · Gói ${_usage!['membership']}',
-                    ),
-                  if (_app.isAuthenticated)
-                    TextButton(
-                      onPressed: () async {
-                        final session = _app.api.sessionVersion;
-                        await Navigator.pushNamed(context, AppRoutes.vip);
-                        if (_current(session)) await _load();
-                      },
-                      child: const Text('Xem gói VIP và thanh toán'),
-                    ),
-                  if (_uncertain)
-                    OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                              if (mounted) setState(() => _video = null);
-                              await _load();
-                            },
-                      child: const Text(
-                        'Kiểm tra lịch sử trước khi phân tích lại',
+              child: CustomScrollView(
+                key: const ValueKey('video-scroll'),
+                controller: _scroll,
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ..._status(),
+                          ...(_video == null ? _catalogHeader() : _learning()),
+                        ],
                       ),
                     ),
-                  ...(_video == null ? _catalog() : _learning()),
+                  ),
+                  if (_video == null) ...[
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverToBoxAdapter(
+                        child: presets.isEmpty
+                            ? const SizedBox.shrink()
+                            : VideoRail(
+                                storageKey: 'video-presets-$_level',
+                                itemCount: presets.length,
+                                itemBuilder: (_, index) =>
+                                    _videoCard(presets[index], true),
+                              ),
+                      ),
+                    ),
+                    if (_app.isAuthenticated) ...[
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const VideoSectionHeading(
+                                'Đã học gần đây',
+                                description: 'Lịch sử video của tài khoản, đồng bộ từ hệ thống.',
+                              ),
+                              if (_busy && !_historyLoaded)
+                                const VideoCardSkeleton(),
+                              if (_historyLoaded && history.isEmpty)
+                                const VideoEmptyState(
+                                  'Bạn chưa có video trong lịch sử.',
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        sliver: SliverToBoxAdapter(
+                          child: history.isEmpty
+                              ? const SizedBox.shrink()
+                              : VideoRail(
+                                  storageKey: 'video-history-$_session',
+                                  itemCount: history.length,
+                                  itemBuilder: (_, index) =>
+                                      _videoCard(history[index], false),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

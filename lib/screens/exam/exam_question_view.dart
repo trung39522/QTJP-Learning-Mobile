@@ -24,12 +24,25 @@ class ExamQuestionView extends StatelessWidget {
   final ValueChanged<int?>? onAnswer;
   final bool enabled, review;
 
-  Widget _text(Object? value) => Padding(
+  Widget _text(Object? value, {bool emphasized = false}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
-    child: SelectableText(
-      value?.toString() ?? '',
-      style: const TextStyle(fontSize: 18, height: 1.7),
-    ),
+    child: review
+        ? SelectableText(
+            value?.toString() ?? '',
+            style: TextStyle(
+              fontSize: 18,
+              height: 1.7,
+              fontWeight: emphasized ? FontWeight.w800 : FontWeight.normal,
+            ),
+          )
+        : Text(
+            value?.toString() ?? '',
+            style: TextStyle(
+              fontSize: 18,
+              height: 1.7,
+              fontWeight: emphasized ? FontWeight.w800 : FontWeight.normal,
+            ),
+          ),
   );
 
   Widget _image(Object? value) {
@@ -182,7 +195,7 @@ class ExamQuestionView extends StatelessWidget {
         if (match != null)
           for (final image in match.mondai['images'] as List? ?? [])
             _image(image),
-        _text(text),
+        _text(text, emphasized: true),
         for (final image in images) _image(image),
         if (images.isEmpty) _image(question['imageUrl']),
         if (missing)

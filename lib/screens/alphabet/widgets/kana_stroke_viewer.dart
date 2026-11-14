@@ -72,8 +72,8 @@ class _KanaStrokeViewerState extends State<KanaStrokeViewer>
           child: Container(
             constraints: const BoxConstraints(maxWidth: 430),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: QTJPColors.border),
+              color: context.qtjp.surface,
+              border: Border.all(color: context.qtjp.border),
               borderRadius: BorderRadius.circular(20),
             ),
             padding: const EdgeInsets.all(10),
@@ -81,6 +81,7 @@ class _KanaStrokeViewerState extends State<KanaStrokeViewer>
               aspectRatio: widget.glyphs.length.toDouble(),
               child: CustomPaint(
                 painter: _StrokePainter(
+                  palette: context.qtjp,
                   glyphs: widget.glyphs,
                   strokes: _strokes,
                   total: _total,
@@ -94,8 +95,8 @@ class _KanaStrokeViewerState extends State<KanaStrokeViewer>
         Text(
           '$_total nét · Theo dõi nét màu đỏ và số thứ tự',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: QTJPColors.muted,
+          style: TextStyle(
+            color: context.qtjp.muted,
             fontSize: 12,
             height: 1.5,
           ),
@@ -151,6 +152,7 @@ class _Stroke {
 
 class _StrokePainter extends CustomPainter {
   _StrokePainter({
+    required this.palette,
     required this.glyphs,
     required this.strokes,
     required this.total,
@@ -161,6 +163,7 @@ class _StrokePainter extends CustomPainter {
   final List<List<_Stroke>> strokes;
   final int total;
   final Animation<double> animation;
+  final QTJPColorPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -181,7 +184,7 @@ class _StrokePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final guide = Paint()
-      ..color = QTJPColors.border
+      ..color = palette.border
       ..strokeWidth = 0.6;
     for (var glyphIndex = 0; glyphIndex < glyphs.length; glyphIndex++) {
       canvas.save();
@@ -191,7 +194,7 @@ class _StrokePainter extends CustomPainter {
         canvas.drawLine(Offset(offset, 54.5), Offset(offset + 3, 54.5), guide);
       }
       for (final stroke in strokes[glyphIndex]) {
-        canvas.drawPath(stroke.path, paint..color = const Color(0xFFE6EDF5));
+        canvas.drawPath(stroke.path, paint..color = palette.border);
       }
       for (final stroke in strokes[glyphIndex]) {
         final fraction = (animation.value * (total + 0.4) - strokeIndex).clamp(
@@ -199,7 +202,7 @@ class _StrokePainter extends CustomPainter {
           1.0,
         );
         if (fraction > 0) {
-          paint.color = fraction < 1 ? QTJPColors.red : QTJPColors.navy;
+          paint.color = fraction < 1 ? QTJPColors.red : palette.heading;
           var remaining =
               stroke.metrics.fold(0.0, (sum, metric) => sum + metric.length) *
               fraction;
@@ -218,8 +221,8 @@ class _StrokePainter extends CustomPainter {
         final label = TextPainter(
           text: TextSpan(
             text: number.text,
-            style: const TextStyle(
-              color: QTJPColors.blue,
+            style: TextStyle(
+              color: palette.blue,
               fontSize: 8,
               fontWeight: FontWeight.w700,
             ),
@@ -236,5 +239,7 @@ class _StrokePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _StrokePainter oldDelegate) =>
-      oldDelegate.strokes != strokes || oldDelegate.animation != animation;
+      oldDelegate.strokes != strokes ||
+      oldDelegate.animation != animation ||
+      oldDelegate.palette != palette;
 }

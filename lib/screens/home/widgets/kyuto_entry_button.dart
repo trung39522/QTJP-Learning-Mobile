@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/qtjp_colors.dart';
 
 class KyutoEntryButton extends StatelessWidget {
-  const KyutoEntryButton({required this.onPressed, super.key});
+  const KyutoEntryButton({
+    required this.onPressed,
+    this.compact = false,
+    super.key,
+  });
+
+  final bool compact;
 
   static const avatarAsset = 'assets/mascot/kyuto_avatar.webp';
 
@@ -15,7 +21,7 @@ class KyutoEntryButton extends StatelessWidget {
       button: true,
       label: 'Mở Kyuto, trợ lý AI QTJP',
       child: Material(
-        color: const Color(0xFFFFF7FA),
+        color: context.qtjp.pink,
         elevation: 7,
         shadowColor: const Color(0x3DC03970),
         borderRadius: BorderRadius.circular(999),
@@ -27,32 +33,35 @@ class KyutoEntryButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircleAvatar(
-                  radius: 23,
+                CircleAvatar(
+                  radius: compact ? 18 : 23,
                   backgroundColor: Color(0xFFFFEAF3),
-                  backgroundImage: AssetImage(avatarAsset),
+                  backgroundImage: const AssetImage(avatarAsset),
                 ),
                 const SizedBox(width: 9),
-                const Column(
+                Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Kyuto AI',
                       style: TextStyle(
-                        color: Color(0xFF91345E),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFFF4AFD0)
+                            : const Color(0xFF91345E),
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Text(
-                      'Trợ lý học tập',
-                      style: TextStyle(
-                        color: QTJPColors.muted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                    if (!compact)
+                      Text(
+                        'Trợ lý học tập',
+                        style: TextStyle(
+                          color: context.qtjp.muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -89,7 +98,7 @@ class KyutoPreviewSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               CircleAvatar(
                 radius: 31,
@@ -104,7 +113,7 @@ class KyutoPreviewSheet extends StatelessWidget {
                     Text(
                       'Kyuto · Trợ lý AI QTJP',
                       style: TextStyle(
-                        color: QTJPColors.navyDark,
+                        color: context.qtjp.heading,
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
@@ -128,15 +137,15 @@ class KyutoPreviewSheet extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7FA),
-              border: Border.all(color: const Color(0xFFF2DAE4)),
+              color: context.qtjp.pink,
+              border: Border.all(color: context.qtjp.border),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text(
+            child: Text(
               'こんにちは！ Mình là Kyuto. Mình có thể giúp bạn tra từ, '
               'giải thích ngữ pháp, luyện JLPT và theo dõi hành trình học tập.',
               style: TextStyle(
-                color: QTJPColors.text,
+                color: context.qtjp.heading,
                 fontSize: 14,
                 height: 1.55,
               ),
@@ -152,10 +161,10 @@ class KyutoPreviewSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          const Text(
+          Text(
             'Bạn muốn làm gì?',
             style: TextStyle(
-              color: QTJPColors.navy,
+              color: context.qtjp.heading,
               fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
@@ -203,10 +212,10 @@ class KyutoPreviewSheet extends StatelessWidget {
             },
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Đăng nhập bằng tài khoản QTJP để trò chuyện với Kyuto. Các mục tra cứu có thể mở từ lối tắt phía trên.',
             style: TextStyle(
-              color: QTJPColors.muted,
+              color: context.qtjp.muted,
               fontSize: 11,
               height: 1.45,
             ),

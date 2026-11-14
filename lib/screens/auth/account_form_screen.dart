@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
 import 'account_repository.dart';
@@ -138,7 +140,8 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
     ),
   );
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
+    showAssistant: false,
     appBar: AppBar(title: Text(_title)),
     body: SafeArea(
       child: SingleChildScrollView(
@@ -183,7 +186,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                 : widget.form == AccountForm.password &&
                       _owner != AppScope.of(context).api.sessionVersion
                 ? const Text(
-                    'Phiên tài khoản đã thay đổi. Quay lại Cá nhân để đổi mật khẩu cho tài khoản hiện tại.',
+                    'Phiên tài khoản đã thay đổi. Mở lại Bảo mật từ menu tài khoản.',
                   )
                 : Form(
                     key: _formKey,
@@ -222,7 +225,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                           ),
                         if (widget.form == AccountForm.reset) ...[
                           const Text(
-                            'Dán liên kết đặt lại mật khẩu từ email hoặc mã token trong liên kết. Liên kết do backend gửi qua email.',
+                            'Dán liên kết hoặc mã đặt lại mật khẩu trong email của bạn.',
                           ),
                           const SizedBox(height: 16),
                           _field(

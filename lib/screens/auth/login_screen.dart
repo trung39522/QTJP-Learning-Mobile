@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../core/theme/qtjp_colors.dart';
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
 import 'account_form_screen.dart';
+import 'google_identity.dart';
+import 'google_mark.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({this.googleIdentity, super.key});
+  final GoogleIdentity? googleIdentity;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -99,22 +104,86 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _submitGoogle() async {
+    if (_busy) return;
+    FocusScope.of(context).unfocus();
+    final app = AppScope.of(context);
+    final session = app.api.sessionVersion;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final credential = await (widget.googleIdentity ?? DeviceGoogleIdentity())
+          .credential();
+      if (!mounted || credential == null || session != app.api.sessionVersion) {
+        return;
+      }
+      try {
+        await app.loginWithGoogle(credential, remember: _remember);
+      } on ApiException catch (error) {
+        if (error.code != 'VIP_SESSION_ACTIVE' || !mounted) rethrow;
+        final replace = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Tài khoản đang được sử dụng'),
+            content: Text(
+              '${error.message}\n\nBạn có muốn đăng xuất phiên trên thiết bị khác để tiếp tục không?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Tiếp tục đăng nhập'),
+              ),
+            ],
+          ),
+        );
+        if (replace != true || !mounted || session != app.api.sessionVersion) {
+          return;
+        }
+        await app.loginWithGoogle(
+          credential,
+          replaceOtherSession: true,
+          remember: _remember,
+        );
+      }
+      if (!mounted) return;
+      _passwordController.clear();
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is ApiException
+              ? error.message
+              : 'Chưa thể đăng nhập Google. Vui lòng thử lại.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   InputDecoration _decoration(String label, IconData icon) => InputDecoration(
     labelText: label,
     prefixIcon: Icon(icon),
     filled: true,
-    fillColor: Colors.white.withValues(alpha: 0.95),
+    fillColor: context.qtjp.surface,
     errorMaxLines: 3,
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFD8DDEB)),
+      borderSide: BorderSide(color: context.qtjp.border),
     ),
   );
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KyutoScaffold(
+      showAssistant: false,
       appBar: AppBar(title: const Text('Tài khoản QTJP')),
       body: Stack(
         fit: StackFit.expand,
@@ -124,7 +193,11 @@ class _LoginScreenState extends State<LoginScreen> {
             fit: BoxFit.cover,
             excludeFromSemantics: true,
           ),
-          ColoredBox(color: const Color(0xFFE1E8FF).withValues(alpha: 0.55)),
+          ColoredBox(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xB30C1423)
+                : const Color(0x8CE1E8FF),
+          ),
           SafeArea(
             top: false,
             child: LayoutBuilder(
@@ -146,9 +219,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         constraints.maxWidth < 360 ? 20 : 28,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.94),
+                        color: context.qtjp.surface.withValues(alpha: 0.96),
                         borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: Colors.white),
+                        border: Border.all(color: context.qtjp.border),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x2E14235A),
@@ -163,40 +236,36 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Image.asset(
-                              'assets/branding/qtjp_logo.png',
-                              height: 56,
-                              semanticLabel: 'QTJP Learning',
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Image.asset(
+                                'assets/branding/qtjp_logo.png',
+                                height: 56,
+                                semanticLabel: 'QTJP Learning',
+                              ),
                             ),
                             const SizedBox(height: 20),
-                            const Text(
+                            Text(
                               'Đăng nhập',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: QTJPColors.navyDark,
+                                color: context.qtjp.heading,
                                 fontSize: 28,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                             const SizedBox(height: 6),
-                            const Text(
+                            Text(
                               'Học tiếng Nhật mỗi ngày',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: QTJPColors.muted),
+                              style: TextStyle(color: context.qtjp.muted),
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              AppScope.of(context).supportsRememberSession
-                                  ? 'Sử dụng tài khoản QTJP Learning trên website. Có thể chọn giữ đăng nhập an toàn trên thiết bị này.'
-                                  : 'Sử dụng tài khoản QTJP Learning trên website.\nPhiên hiện chỉ được giữ khi ứng dụng còn chạy.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: QTJPColors.blue,
-                                fontSize: 12,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 8),
                             TextFormField(
                               key: const ValueKey('login-username'),
                               controller: _usernameController,
@@ -258,8 +327,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                         () => _remember = value ?? false,
                                       ),
                                 title: const Text(
-                                  'Giữ đăng nhập trên thiết bị này',
+                                  'Lưu đăng nhập',
+                                  style: TextStyle(fontSize: 12),
                                 ),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                visualDensity: VisualDensity.compact,
+                                checkboxScaleFactor: .8,
+                                dense: true,
                                 contentPadding: EdgeInsets.zero,
                               ),
                             Align(
@@ -301,36 +376,31 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _error!,
                                   key: const ValueKey('login-error'),
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: QTJPColors.navy,
+                                  style: TextStyle(
+                                    color: context.qtjp.heading,
                                     height: 1.5,
                                   ),
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 20),
-                            const Row(
-                              children: [
-                                Expanded(child: Divider()),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 12),
-                                  child: Text(
-                                    'hoặc',
-                                    style: TextStyle(color: QTJPColors.muted),
-                                  ),
-                                ),
-                                Expanded(child: Divider()),
-                              ],
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              key: const ValueKey('login-google'),
+                              onPressed: _busy ? null : _submitGoogle,
+                              icon: const GoogleMark(),
+                              label: const Text(
+                                'Đăng nhập bằng Google',
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                            const SizedBox(height: 16),
                             const SizedBox(height: 16),
                             Wrap(
                               alignment: WrapAlignment.center,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                const Text(
+                                Text(
                                   'Chưa có tài khoản?',
-                                  style: TextStyle(color: QTJPColors.muted),
+                                  style: TextStyle(color: context.qtjp.muted),
                                 ),
                                 TextButton(
                                   onPressed: () =>

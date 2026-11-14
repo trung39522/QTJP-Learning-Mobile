@@ -250,13 +250,17 @@ class _LearningVideoPlayerState extends State<LearningVideoPlayer>
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      SizedBox(
-        height: widget.video.platform == 'TIKTOK' ? 360 : 240,
-        child: _web == null
-            ? _error == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : const SizedBox.shrink()
-            : WebViewWidget(controller: _web!),
+      LayoutBuilder(
+        builder: (context, constraints) => SizedBox(
+          height: widget.video.platform == 'TIKTOK'
+              ? (constraints.maxWidth * 16 / 9).clamp(240.0, 420.0)
+              : constraints.maxWidth * 9 / 16,
+          child: _web == null
+              ? _error == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : const SizedBox.shrink()
+              : WebViewWidget(controller: _web!),
+        ),
       ),
       if (_error != null) ...[
         Text(_error!),

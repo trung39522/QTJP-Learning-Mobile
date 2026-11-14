@@ -33,8 +33,8 @@ class HomeSectionHeader extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             title,
-            style: const TextStyle(
-              color: QTJPColors.navyDark,
+            style: TextStyle(
+              color: context.qtjp.heading,
               fontSize: 24,
               height: 1.2,
               fontWeight: FontWeight.w900,
@@ -44,8 +44,8 @@ class HomeSectionHeader extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             description,
-            style: const TextStyle(
-              color: QTJPColors.muted,
+            style: TextStyle(
+              color: context.qtjp.muted,
               fontSize: 14,
               height: 1.55,
             ),

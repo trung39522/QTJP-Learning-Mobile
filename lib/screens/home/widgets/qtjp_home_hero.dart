@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+
+import 'dart:math' as math;
 
 import '../../../core/theme/qtjp_colors.dart';
 import '../../../core/theme/qtjp_spacing.dart';
@@ -7,11 +9,13 @@ class QTJPHomeHero extends StatelessWidget {
   const QTJPHomeHero({
     required this.onPrimaryPressed,
     required this.onAlphabetPressed,
+    required this.onFeaturePressed,
     super.key,
   });
 
   final VoidCallback onPrimaryPressed;
   final VoidCallback onAlphabetPressed;
+  final ValueChanged<String> onFeaturePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +28,17 @@ class QTJPHomeHero extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           padding: EdgeInsets.all(isWide ? QTJPSpacing.xxl : QTJPSpacing.xl),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Colors.white, Color(0xFFF5F9FD), Color(0xFFEDF5FC)],
+              colors: [
+                context.qtjp.surface,
+                context.qtjp.soft,
+                context.qtjp.soft,
+              ],
               stops: [0, 0.56, 1],
             ),
-            border: Border.all(color: const Color(0xFFDCE8F3)),
+            border: Border.all(color: context.qtjp.border),
             borderRadius: BorderRadius.circular(24),
             boxShadow: const [
               BoxShadow(
@@ -42,6 +50,9 @@ class QTJPHomeHero extends StatelessWidget {
           ),
           child: Stack(
             children: [
+              const Positioned.fill(
+                child: CustomPaint(painter: _HeroGridPainter()),
+              ),
               const Positioned(
                 right: -58,
                 top: -72,
@@ -59,7 +70,9 @@ class QTJPHomeHero extends StatelessWidget {
                       child: _HeroCopy(onPrimaryPressed, onAlphabetPressed),
                     ),
                     const SizedBox(width: 36),
-                    const Expanded(child: _HeroVisual()),
+                    Expanded(
+                      child: _HeroVisual(onFeaturePressed: onFeaturePressed),
+                    ),
                   ],
                 )
               else
@@ -68,7 +81,9 @@ class QTJPHomeHero extends StatelessWidget {
                   children: [
                     _HeroCopy(onPrimaryPressed, onAlphabetPressed),
                     const SizedBox(height: 30),
-                    const Center(child: _HeroVisual()),
+                    Center(
+                      child: _HeroVisual(onFeaturePressed: onFeaturePressed),
+                    ),
                   ],
                 ),
             ],
@@ -93,11 +108,11 @@ class _HeroCopy extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.82),
+            color: context.qtjp.surface.withValues(alpha: 0.82),
             border: Border.all(color: const Color(0x1F06275B)),
             borderRadius: BorderRadius.circular(999),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               DecoratedBox(
@@ -113,7 +128,7 @@ class _HeroCopy extends StatelessWidget {
                   'QTJP LEARNING · HÀNH TRÌNH TIẾNG NHẬT',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: QTJPColors.navy,
+                    color: context.qtjp.heading,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
@@ -134,8 +149,8 @@ class _HeroCopy extends StatelessWidget {
               ),
             ],
           ),
-          style: const TextStyle(
-            color: QTJPColors.navyDark,
+          style: TextStyle(
+            color: context.qtjp.heading,
             fontSize: 39,
             height: 1.08,
             letterSpacing: -1.5,
@@ -143,10 +158,14 @@ class _HeroCopy extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
+        Text(
           'Từ bảng chữ cái đến JLPT N1: học Flashcard, ngữ pháp, '
-          'tra từ điển, luyện viết với AI và thi thử trên cùng một nền tảng.',
-          style: TextStyle(color: QTJPColors.muted, fontSize: 15, height: 1.65),
+          'tra từ điển, luyện viết với AI, học qua video và thi thử — tất cả trên một nền tảng.',
+          style: TextStyle(
+            color: context.qtjp.muted,
+            fontSize: 15,
+            height: 1.65,
+          ),
         ),
         const SizedBox(height: 22),
         LayoutBuilder(
@@ -202,14 +221,14 @@ class _HeroTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.78),
-        border: Border.all(color: QTJPColors.border),
+        color: context.qtjp.surface.withValues(alpha: 0.78),
+        border: Border.all(color: context.qtjp.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: QTJPColors.muted,
+        style: TextStyle(
+          color: context.qtjp.muted,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -218,82 +237,167 @@ class _HeroTag extends StatelessWidget {
   }
 }
 
-class _HeroVisual extends StatelessWidget {
-  const _HeroVisual();
+class _HeroVisual extends StatefulWidget {
+  const _HeroVisual({required this.onFeaturePressed});
+
+  final ValueChanged<String> onFeaturePressed;
+
+  @override
+  State<_HeroVisual> createState() => _HeroVisualState();
+}
+
+class _HeroVisualState extends State<_HeroVisual> {
+  double _angle = 0;
+  bool _dragging = false;
+
+  static const _items = [
+    ('dictionary', '辞', 'Từ điển', 'Tra Nhật – Việt'),
+    ('flashcard', '単', 'Từ vựng', 'Học theo JLPT'),
+    ('video', '映', 'Học qua video', 'Nghe & phân tích'),
+    ('exam', '試', 'Thi thử JLPT', 'Đề thi & kết quả'),
+    ('grammar', '文', 'Ngữ pháp', 'Mẫu câu & ví dụ'),
+    ('writing', '書', 'Luyện viết AI', 'AI Sensei góp ý'),
+    ('flashcard', '語', 'Flashcard', 'Lật thẻ từ vựng'),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 310),
+      constraints: const BoxConstraints(maxWidth: 360),
       child: AspectRatio(
         aspectRatio: 1,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            const Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.fromBorderSide(
-                    BorderSide(color: Color(0x2606275B)),
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0x2206275B),
-                      style: BorderStyle.solid,
+        child: FittedBox(
+          child: SizedBox.square(
+            dimension: 360,
+            child: GestureDetector(
+              key: const ValueKey('home-feature-orbit'),
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: (_) => setState(() => _dragging = true),
+              onHorizontalDragUpdate: (details) => setState(() {
+                _angle += details.delta.dx / 120;
+              }),
+              onHorizontalDragEnd: (_) => setState(() => _dragging = false),
+              onHorizontalDragCancel: () => setState(() => _dragging = false),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  for (final inset in [12.0, 44.0])
+                    Positioned.fill(
+                      child: Padding(
+                        padding: EdgeInsets.all(inset),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0x1A3C7FBD)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 155,
+                    height: 155,
+                    decoration: BoxDecoration(
+                      color: context.qtjp.surface,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x2006275B),
+                          blurRadius: 30,
+                          offset: Offset(0, 16),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 62,
+                              height: 62,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: context.qtjp.pink,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '富士',
+                                style: TextStyle(
+                                  color: context.qtjp.heading,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'QTJP Learning',
+                              style: TextStyle(
+                                color: context.qtjp.heading,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'JAPANESE LEARNING',
+                              style: TextStyle(
+                                color: context.qtjp.blue,
+                                fontSize: 7,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Xoay vòng chức năng',
+                              onPressed: () => setState(
+                                () => _angle += 2 * math.pi / _items.length,
+                              ),
+                              icon: Icon(
+                                Icons.rotate_right_rounded,
+                                color: context.qtjp.blue,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            Container(
-              width: 154,
-              height: 154,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x2606275B),
-                    blurRadius: 30,
-                    offset: Offset(0, 13),
-                  ),
+                  for (var index = 0; index < _items.length; index++)
+                    TweenAnimationBuilder<double>(
+                      key: ValueKey('orbit-slot-$index'),
+                      tween: Tween(end: _angle),
+                      duration:
+                          _dragging || MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 350),
+                      builder: (context, angle, child) {
+                        final position =
+                            angle -
+                            math.pi / 2 +
+                            index * 2 * math.pi / _items.length;
+                        return Positioned(
+                          left: 130 + 128 * math.cos(position),
+                          top: 158 + 148 * math.sin(position),
+                          width: 100,
+                          height: 44,
+                          child: child!,
+                        );
+                      },
+                      child: _OrbitLabel(
+                        symbol: _items[index].$2,
+                        label: _items[index].$3,
+                        detail: _items[index].$4,
+                        onPressed: () =>
+                            widget.onFeaturePressed(_items[index].$1),
+                      ),
+                    ),
                 ],
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(20),
-                child: CustomPaint(painter: _FujiPainter()),
-              ),
             ),
-            const Positioned(
-              top: 2,
-              left: 12,
-              child: _OrbitLabel(symbol: '語', label: 'Flashcard'),
-            ),
-            const Positioned(
-              top: 37,
-              right: 0,
-              child: _OrbitLabel(symbol: '文', label: 'Ngữ pháp'),
-            ),
-            const Positioned(
-              bottom: 19,
-              right: 17,
-              child: _OrbitLabel(symbol: '試', label: 'JLPT'),
-            ),
-            const Positioned(
-              bottom: 38,
-              left: 0,
-              child: _OrbitLabel(symbol: '辞', label: 'Từ điển'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -301,18 +405,22 @@ class _HeroVisual extends StatelessWidget {
 }
 
 class _OrbitLabel extends StatelessWidget {
-  const _OrbitLabel({required this.symbol, required this.label});
+  const _OrbitLabel({
+    required this.symbol,
+    required this.label,
+    required this.detail,
+    required this.onPressed,
+  });
 
   final String symbol;
   final String label;
+  final String detail;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0x2406275B)),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
@@ -322,36 +430,66 @@ class _OrbitLabel extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 27,
-            height: 27,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: QTJPColors.softBlue,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              symbol,
-              style: const TextStyle(
-                color: QTJPColors.navy,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
+      child: Material(
+        color: context.qtjp.surface,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            child: Row(
+              children: [
+                Container(
+                  width: 25,
+                  height: 25,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: QTJPColors.navy,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    symbol,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: context.qtjp.heading,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          detail,
+                          style: TextStyle(
+                            color: context.qtjp.muted,
+                            fontSize: 6.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: QTJPColors.navy,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -373,71 +511,22 @@ class _GlowCircle extends StatelessWidget {
   }
 }
 
-class _FujiPainter extends CustomPainter {
-  const _FujiPainter();
+class _HeroGridPainter extends CustomPainter {
+  const _HeroGridPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final sunPaint = Paint()..color = QTJPColors.red.withValues(alpha: 0.14);
-    canvas.drawCircle(
-      Offset(size.width * 0.7, size.height * 0.3),
-      size.shortestSide * 0.2,
-      sunPaint,
-    );
-
-    final mountain = Path()
-      ..moveTo(size.width * 0.08, size.height * 0.74)
-      ..lineTo(size.width * 0.5, size.height * 0.27)
-      ..lineTo(size.width * 0.92, size.height * 0.74)
-      ..close();
-    canvas.drawPath(
-      mountain,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [QTJPColors.blue, QTJPColors.navy],
-        ).createShader(Offset.zero & size),
-    );
-
-    final snow = Path()
-      ..moveTo(size.width * 0.5, size.height * 0.27)
-      ..lineTo(size.width * 0.35, size.height * 0.44)
-      ..lineTo(size.width * 0.44, size.height * 0.41)
-      ..lineTo(size.width * 0.5, size.height * 0.5)
-      ..lineTo(size.width * 0.57, size.height * 0.4)
-      ..lineTo(size.width * 0.66, size.height * 0.45)
-      ..close();
-    canvas.drawPath(snow, Paint()..color = Colors.white);
-
-    final ground = Paint()
-      ..color = QTJPColors.blue.withValues(alpha: 0.26)
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(size.width * 0.04, size.height * 0.77),
-      Offset(size.width * 0.96, size.height * 0.77),
-      ground,
-    );
-
-    final textPainter = TextPainter(
-      text: const TextSpan(
-        text: 'QTJP',
-        style: TextStyle(
-          color: QTJPColors.navy,
-          fontSize: 14,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.6,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    textPainter.paint(
-      canvas,
-      Offset((size.width - textPainter.width) / 2, size.height * 0.82),
-    );
+    final paint = Paint()
+      ..color = const Color(0x073C7FBD)
+      ..strokeWidth = 1;
+    for (double x = 0; x < size.width; x += 32) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y < size.height; y += 32) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(_HeroGridPainter oldDelegate) => false;
 }

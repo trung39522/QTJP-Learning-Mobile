@@ -7,7 +7,7 @@ import 'package:qtjp_mobile/core/network/api_client.dart';
 import 'package:qtjp_mobile/main.dart';
 
 void main() {
-  testWidgets('real login flow returns to profile with website account', (
+  testWidgets('real account menu login opens the existing profile', (
     tester,
   ) async {
     final app = AppController(
@@ -22,9 +22,9 @@ void main() {
     );
     addTearDown(app.dispose);
     await tester.pumpWidget(QTJPMobile(controller: app));
-    await tester.tap(find.text('Cá nhân'));
+    await tester.tap(find.byKey(const ValueKey('home-account-avatar')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('profile-login')));
+    await tester.tap(find.byKey(const ValueKey('account-menu-Đăng nhập')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('login-username')),
@@ -38,8 +38,12 @@ void main() {
     await tester.ensureVisible(submit);
     await tester.tap(submit);
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-account-avatar')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('account-menu-Hồ sơ')));
+    await tester.pumpAndSettle();
     expect(find.text('Xin chào, learner'), findsOneWidget);
-    expect(find.text('Gói tài khoản: FREE'), findsOneWidget);
+    expect(find.text('Tài khoản miễn phí'), findsOneWidget);
     expect(find.byKey(const ValueKey('login-password')), findsNothing);
     await tester.ensureVisible(find.text('Đăng xuất'));
     await tester.pumpAndSettle();
@@ -78,9 +82,13 @@ void main() {
         .pushNamed('/learn/dictionary');
     await tester.pumpAndSettle();
     expect(find.text('trường học'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('dictionary-result-0')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('dictionary-result-0')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('学校に行きます。'), findsOneWidget);
+    expect(find.text('Thu gọn'), findsNothing);
+    expect(find.byKey(const ValueKey('dictionary-details-学校')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -111,8 +119,27 @@ void main() {
             }
             if (uri.path.endsWith('/vocabularies')) {
               return const ApiResponse(200, [
-                {'id': 99, 'word': '仕事', 'meaning': 'công việc'},
+                {
+                  'id': 99,
+                  'word': 'しごと',
+                  'kanji': '仕事',
+                  'meaning': 'công việc',
+                  'hanViet': 'SĨ SỰ',
+                  'partOfSpeech': 'Danh từ',
+                  'exampleJapanese': '仕事です。',
+                  'exampleVietnamese': 'Đó là công việc.',
+                  'exampleFurigana': [
+                    {'text': '仕事', 'reading': 'しごと'},
+                    {'text': 'です。', 'reading': ''},
+                  ],
+                },
               ]);
+            }
+            if (uri.path.endsWith('/unread-count')) {
+              return const ApiResponse(200, {'unreadCount': 0});
+            }
+            if (method == 'GET' && uri.path.endsWith('/progress')) {
+              return const ApiResponse(200, []);
             }
             saveCount++;
             if (saveCount == 1) return save.future;
@@ -132,6 +159,9 @@ void main() {
       await tester.ensureVisible(find.byKey(const ValueKey('study-flip')));
       await tester.tap(find.byKey(const ValueKey('study-flip')));
       await tester.pumpAndSettle();
+      expect(find.text('「SĨ SỰ」'), findsOneWidget);
+      expect(find.text('しごと'), findsOneWidget);
+      expect(find.text('です。'), findsOneWidget);
       final remembered = find.byKey(const ValueKey('study-remembered'));
       await tester.ensureVisible(remembered);
       await tester.tap(remembered);
@@ -211,7 +241,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('N は N です'), findsOneWidget);
     expect(find.text('N1 は N2 です'), findsOneWidget);
-    expect(find.text('私は学生です。'), findsOneWidget);
+    expect(find.text('私'), findsOneWidget);
+    expect(find.text('わたし'), findsOneWidget);
+    expect(find.text('は学生です。'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

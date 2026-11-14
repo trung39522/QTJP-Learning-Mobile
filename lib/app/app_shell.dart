@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../core/widgets/kyuto_scaffold.dart';
+
+import '../core/widgets/qtjp_app_header.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/exam/exam_screen.dart';
 import '../screens/learning/learning_screen.dart';
-import '../screens/profile/profile_screen.dart';
+import '../screens/dictionary/dictionary_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -16,7 +19,9 @@ class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
   String _selectedLevel = 'N5';
   bool _examOpened = false;
+  bool _lookupOpened = false;
   bool _examTaking = false;
+  bool _accountMenuOpen = false;
 
   void _changeLevel(String level) => setState(() => _selectedLevel = level);
 
@@ -25,11 +30,20 @@ class _AppShellState extends State<AppShell> {
     return PopScope(
       canPop: _selectedIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _selectedIndex != 0 && !_examTaking) {
+        if (!didPop &&
+            _selectedIndex != 0 &&
+            !_examTaking &&
+            !_accountMenuOpen) {
           setState(() => _selectedIndex = 0);
         }
       },
-      child: Scaffold(
+      child: KyutoScaffold(
+        appBar: QTJPAppHeader(
+          accountActionsEnabled: !_examTaking,
+          onMenuVisibilityChanged: (open) {
+            if (mounted) setState(() => _accountMenuOpen = open);
+          },
+        ),
         body: IndexedStack(
           index: _selectedIndex,
           children: [
@@ -42,8 +56,13 @@ class _AppShellState extends State<AppShell> {
               selectedLevel: _selectedLevel,
               onLevelChanged: _changeLevel,
             ),
+            if (_lookupOpened)
+              const DictionaryScreen(embedded: true)
+            else
+              const SizedBox.shrink(),
             if (_examOpened)
               ExamScreen(
+                embedded: true,
                 initialLevel: _selectedLevel,
                 onLevelChanged: _changeLevel,
                 onTakingChanged: (value) {
@@ -52,13 +71,12 @@ class _AppShellState extends State<AppShell> {
               )
             else
               const SizedBox.shrink(),
-            const ProfileScreen(),
           ],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: (index) {
-            if (_examTaking && index != 2) {
+            if (_examTaking && index != 3) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
@@ -70,7 +88,8 @@ class _AppShellState extends State<AppShell> {
             }
             setState(() {
               _selectedIndex = index;
-              if (index == 2) _examOpened = true;
+              if (index == 2) _lookupOpened = true;
+              if (index == 3) _examOpened = true;
             });
           },
           destinations: const [
@@ -83,12 +102,12 @@ class _AppShellState extends State<AppShell> {
               label: 'Học tập',
             ),
             NavigationDestination(
-              icon: Icon(Icons.fact_check_rounded),
-              label: 'Luyện đề',
+              icon: Icon(Icons.search_rounded),
+              label: 'Tra cứu',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Cá nhân',
+              icon: Icon(Icons.fact_check_rounded),
+              label: 'Luyện đề',
             ),
           ],
         ),

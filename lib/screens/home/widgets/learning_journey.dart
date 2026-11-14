@@ -23,12 +23,12 @@ class LearningJourney extends StatelessWidget {
           width: double.infinity,
           padding: EdgeInsets.all(isWide ? 28 : 18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFF5FAFE), Color(0xFFEAF4FB)],
+              colors: [context.qtjp.soft, context.qtjp.surface],
             ),
-            border: Border.all(color: const Color(0xFFD8E7F2)),
+            border: Border.all(color: context.qtjp.border),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
@@ -54,7 +54,7 @@ class LearningJourney extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -71,7 +71,7 @@ class LearningJourney extends StatelessWidget {
                         Text(
                           'Từng bước lên đỉnh JLPT',
                           style: TextStyle(
-                            color: QTJPColors.navyDark,
+                            color: context.qtjp.heading,
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
@@ -241,7 +241,7 @@ class _JourneyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.92),
+      color: context.qtjp.surface.withValues(alpha: 0.92),
       borderRadius: BorderRadius.circular(17),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -274,8 +274,8 @@ class _JourneyCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       item.tag,
-                      style: const TextStyle(
-                        color: QTJPColors.blue,
+                      style: TextStyle(
+                        color: context.qtjp.blue,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.5,
@@ -287,8 +287,8 @@ class _JourneyCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 item.title,
-                style: const TextStyle(
-                  color: QTJPColors.navyDark,
+                style: TextStyle(
+                  color: context.qtjp.heading,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -306,8 +306,8 @@ class _JourneyCard extends StatelessWidget {
                       item.actionLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: QTJPColors.navy,
+                      style: TextStyle(
+                        color: context.qtjp.heading,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),
@@ -337,11 +337,7 @@ class _JourneyDescription extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       description,
-      style: const TextStyle(
-        color: QTJPColors.muted,
-        fontSize: 12,
-        height: 1.5,
-      ),
+      style: TextStyle(color: context.qtjp.muted, fontSize: 12, height: 1.5),
     );
   }
 }

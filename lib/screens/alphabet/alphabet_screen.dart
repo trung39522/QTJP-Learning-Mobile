@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../core/theme/qtjp_colors.dart';
+import '../../core/widgets/qtjp_feature_intro.dart';
 import 'models/kana.dart';
 import 'widgets/kana_detail_sheet.dart';
 
@@ -27,7 +30,7 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KyutoScaffold(
       appBar: AppBar(title: const Text('Bảng chữ cái Nhật')),
       body: SafeArea(
         top: false,
@@ -39,31 +42,7 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'JAPANESE ALPHABET',
-                    style: TextStyle(
-                      color: QTJPColors.red,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Khởi đầu từ từng nét chữ',
-                    style: TextStyle(
-                      color: QTJPColors.navyDark,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Chạm vào một chữ để nghe cách đọc, xem thứ tự nét viết và '
-                    'chữ tương ứng ở bảng còn lại. Nét viết có thể xem khi không có mạng.',
-                    style: TextStyle(color: QTJPColors.muted, height: 1.6),
-                  ),
-                  const SizedBox(height: 20),
+                  const QTJPFeatureIntro(QTJPFeature.alphabet),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -90,8 +69,8 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
                     const SizedBox(height: 20),
                     Text(
                       group.title,
-                      style: const TextStyle(
-                        color: QTJPColors.navy,
+                      style: TextStyle(
+                        color: context.qtjp.heading,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
@@ -119,7 +98,7 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
                           excludeSemantics: true,
                           onTap: () => _openKana(kana),
                           child: Material(
-                            color: Colors.white,
+                            color: context.qtjp.surface,
                             borderRadius: BorderRadius.circular(14),
                             clipBehavior: Clip.antiAlias,
                             child: InkWell(
@@ -127,20 +106,28 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    text,
-                                    style: const TextStyle(
-                                      fontSize: 26,
-                                      color: QTJPColors.navy,
-                                      fontWeight: FontWeight.w700,
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      text,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 26,
+                                        color: context.qtjp.heading,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                   if (_showRomaji)
-                                    Text(
-                                      kana.romaji,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: QTJPColors.blue,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        kana.romaji,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: context.qtjp.blue,
+                                        ),
                                       ),
                                     ),
                                 ],

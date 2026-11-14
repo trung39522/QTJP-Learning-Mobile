@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/qtjp_colors.dart';
@@ -30,7 +32,7 @@ class _WritingHistoryScreenState extends State<WritingHistoryScreen> {
 
   void _reload() => setState(() => _history = _repository.history());
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(
       title: const Text('Lịch sử & thống kê viết'),
       actions: [
@@ -116,8 +118,8 @@ class _WritingHistoryScreenState extends State<WritingHistoryScreen> {
                                   children: [
                                     Text(
                                       'Lần ${attempt.number} · ${attempt.score ?? '—'}/100',
-                                      style: const TextStyle(
-                                        color: QTJPColors.navy,
+                                      style: TextStyle(
+                                        color: context.qtjp.heading,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),

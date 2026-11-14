@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/theme/qtjp_colors.dart';
 import '../../core/widgets/api_error_view.dart';
+import '../../core/widgets/qtjp_feature_intro.dart';
 import '../home/widgets/jlpt_level_selector.dart';
 import 'writing_editor_screen.dart';
 import 'writing_history_screen.dart';
@@ -82,7 +85,7 @@ class _WritingScreenState extends State<WritingScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(
       title: const Text('Luyện viết với AI'),
       actions: [
@@ -112,15 +115,26 @@ class _WritingScreenState extends State<WritingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const QTJPFeatureIntro(QTJPFeature.writing),
                 const Text(
-                  'Chọn chủ đề và viết bằng tiếng Nhật',
+                  'BƯỚC 01 / CHUẨN BỊ',
                   style: TextStyle(
-                    fontSize: 24,
+                    color: QTJPColors.red,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: QTJPColors.navy,
+                    letterSpacing: 1,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                Text(
+                  'Chọn bài luyện viết',
+                  style: TextStyle(
+                    color: context.qtjp.heading,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 JlptLevelSelector(
                   selectedLevel: _level,
                   onSelected: (level) {
@@ -150,7 +164,17 @@ class _WritingScreenState extends State<WritingScreen> {
                           Text('Máy chủ chưa có chủ đề $_level.'),
                         for (final topic in topics)
                           Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              side: BorderSide(color: context.qtjp.border),
+                            ),
                             child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: Icon(
+                                Icons.edit_note_rounded,
+                                color: context.qtjp.heading,
+                              ),
                               key: ValueKey('writing-topic-${topic.id}'),
                               title: Text(topic.title),
                               subtitle: Text(
@@ -176,10 +200,10 @@ class _WritingScreenState extends State<WritingScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Chỉ gửi yêu cầu khi bạn bấm tạo đề. Giới hạn lượt theo tài khoản được kiểm tra bởi máy chủ.',
                           style: TextStyle(
-                            color: QTJPColors.muted,
+                            color: context.qtjp.muted,
                             height: 1.6,
                           ),
                         ),

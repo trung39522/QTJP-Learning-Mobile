@@ -81,7 +81,7 @@ class _JapanInspirationGalleryState extends State<JapanInspirationGallery> {
                   height: 7,
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
-                    color: active ? QTJPColors.red : QTJPColors.border,
+                    color: active ? QTJPColors.red : context.qtjp.border,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 );
@@ -115,12 +115,12 @@ class _InspirationPhoto extends StatelessWidget {
               filterQuality: FilterQuality.medium,
               excludeFromSemantics: true,
               errorBuilder: (context, error, stackTrace) {
-                return const ColoredBox(
-                  color: QTJPColors.softBlue,
+                return ColoredBox(
+                  color: context.qtjp.soft,
                   child: Center(
                     child: Icon(
                       Icons.image_not_supported_outlined,
-                      color: QTJPColors.muted,
+                      color: context.qtjp.muted,
                     ),
                   ),
                 );

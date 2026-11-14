@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/theme/qtjp_colors.dart';
 import '../../core/network/api_client.dart';
 import '../../core/widgets/api_error_view.dart';
+import '../../core/widgets/qtjp_feature_intro.dart';
 import '../home/widgets/jlpt_level_selector.dart';
 import 'data/flashcard_repository.dart';
 import 'flashcard_study_screen.dart';
+import 'flashcard_editor_screen.dart';
 import 'models/flashcard_deck.dart';
 
 class FlashcardScreen extends StatefulWidget {
   const FlashcardScreen({
     required this.initialLevel,
     this.repository,
+    this.vocabularyOnly = false,
     super.key,
   });
   final String initialLevel;
   final FlashcardRepository? repository;
+  final bool vocabularyOnly;
 
   @override
   State<FlashcardScreen> createState() => _FlashcardScreenState();
@@ -64,7 +70,7 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     _reload();
   }
 
-  Future<void> _openDeck(FlashcardDeck deck) async {
+  Future<void> _openDeck(FlashcardDeck deck, {bool vocabulary = false}) async {
     if (_opening != null) return;
     final session = _app?.api.sessionVersion;
     setState(() {
@@ -73,12 +79,17 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     });
     try {
       final words = await _repository!.getWords(deck);
+      final progress = _repository is ApiFlashcardRepository
+          ? await (_repository as ApiFlashcardRepository).getProgress()
+          : <int, bool>{};
       if (!mounted || session != _app?.api.sessionVersion) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => FlashcardStudyScreen(
             deck: deck.withWords(words),
+            initiallyShowVocabulary: vocabulary || widget.vocabularyOnly,
             sessionVersion: session,
+            initialProgress: progress,
             onAnswer: deck.isSample
                 ? null
                 : (word, remembered) async {
@@ -104,12 +115,33 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     }
   }
 
+  Future<void> _edit([FlashcardDeck? deck]) async {
+    final repository = _repository;
+    if (repository is! ApiFlashcardRepository || _opening != null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => FlashcardEditorScreen(
+          repository: repository,
+          level: _level,
+          deck: deck,
+        ),
+      ),
+    );
+    if (mounted) _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     final sample = _repository is DemoFlashcardRepository;
-    return Scaffold(
+    return KyutoScaffold(
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF0B1425)
+          : const Color(0xFFEAF0F8),
       appBar: AppBar(
-        title: const Text('Flashcard từ vựng'),
+        title: Text(
+          widget.vocabularyOnly ? 'Từ vựng theo cấp độ' : 'Flashcard từ vựng',
+        ),
         actions: [
           IconButton(
             onPressed: _opening == null ? _reload : null,
@@ -128,43 +160,71 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'FLASHCARD JLPT',
-                    style: TextStyle(
-                      color: QTJPColors.red,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
+                  if (!widget.vocabularyOnly)
+                    const QTJPFeatureIntro(QTJPFeature.flashcard)
+                  else ...[
+                    Text(
+                      'TỪ VỰNG JLPT',
+                      style: TextStyle(
+                        color: context.qtjp.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Học từ vựng theo chủ đề',
-                    style: TextStyle(
-                      color: QTJPColors.navyDark,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Học từ theo từng bài',
+                      style: TextStyle(
+                        color: context.qtjp.heading,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    sample
-                        ? 'Bộ thẻ mẫu dùng để kiểm thử, không đồng bộ tài khoản.'
-                        : 'Bộ thẻ từ website QTJP. Tiến độ được lưu vào tài khoản sau mỗi lần tự đánh giá.',
-                    style: const TextStyle(
-                      color: QTJPColors.muted,
-                      height: 1.6,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 12),
+                  ],
                   JlptLevelSelector(
                     selectedLevel: _level,
                     onSelected: _selectLevel,
                   ),
                   const SizedBox(height: 14),
+                  if (_repository is ApiFlashcardRepository) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          key: const ValueKey('deck-create'),
+                          onPressed:
+                              _app?.isAuthenticated == true && _opening == null
+                              ? () => _edit()
+                              : null,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Tạo bộ từ cá nhân'),
+                        ),
+                        TextButton(
+                          onPressed: _opening == null
+                              ? () => _openDeck(
+                                  FlashcardDeck(
+                                    id: 'all',
+                                    name: 'Tổng hợp từ vựng $_level',
+                                    level: _level,
+                                    description: '',
+                                    words: const [],
+                                  ),
+                                  vocabulary: widget.vocabularyOnly,
+                                )
+                              : null,
+                          child: Text('Học toàn bộ $_level'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Text(
                     'Cấp độ đang chọn: $_level',
-                    style: const TextStyle(
-                      color: QTJPColors.navy,
+                    style: TextStyle(
+                      color: context.qtjp.heading,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -190,10 +250,10 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                             padding: const EdgeInsets.all(24),
                             child: Column(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.style_outlined,
                                   size: 40,
-                                  color: QTJPColors.blue,
+                                  color: context.qtjp.blue,
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
@@ -218,6 +278,12 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 16),
                               child: Card(
+                                color: context.qtjp.surface,
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                  side: BorderSide(color: context.qtjp.border),
+                                ),
                                 clipBehavior: Clip.antiAlias,
                                 child: InkWell(
                                   key: ValueKey(deck.id),
@@ -240,22 +306,31 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                                         const SizedBox(height: 12),
                                         Text(
                                           deck.name,
-                                          style: const TextStyle(
-                                            color: QTJPColors.navy,
+                                          style: TextStyle(
+                                            color: context.qtjp.heading,
                                             fontSize: 22,
                                             fontWeight: FontWeight.w800,
                                           ),
                                         ),
-                                        if (deck.description.isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            deck.description,
-                                            style: const TextStyle(
-                                              color: QTJPColors.muted,
-                                              height: 1.6,
+                                        if (!deck.systemDeck &&
+                                            deck.ownerUserId != null &&
+                                            '${deck.ownerUserId}' ==
+                                                '${_app?.user?['id']}')
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: TextButton.icon(
+                                              onPressed: _opening == null
+                                                  ? () => _edit(deck)
+                                                  : null,
+                                              icon: const Icon(
+                                                Icons.edit_outlined,
+                                                size: 18,
+                                              ),
+                                              label: const Text(
+                                                'Chỉnh sửa bộ từ',
+                                              ),
                                             ),
                                           ),
-                                        ],
                                         const SizedBox(height: 20),
                                         Wrap(
                                           spacing: 20,
@@ -273,10 +348,12 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                                                     ),
                                               )
                                             else
-                                              const Text(
-                                                'Bắt đầu học →',
+                                              Text(
+                                                widget.vocabularyOnly
+                                                    ? 'Xem từ vựng →'
+                                                    : 'Bắt đầu học →',
                                                 style: TextStyle(
-                                                  color: QTJPColors.blue,
+                                                  color: context.qtjp.blue,
                                                   fontWeight: FontWeight.w800,
                                                 ),
                                               ),

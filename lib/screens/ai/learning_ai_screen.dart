@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/kyuto_scaffold.dart';
+
 import '../../app/app_controller.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/network/api_client.dart';
@@ -185,7 +187,7 @@ class _LearningAiScreenState extends State<LearningAiScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => KyutoScaffold(
     appBar: AppBar(
       title: Text(_dictionary ? 'Từ điển AI' : 'Phân tích ngữ pháp AI'),
     ),

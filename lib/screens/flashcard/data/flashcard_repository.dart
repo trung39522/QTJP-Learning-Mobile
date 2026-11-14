@@ -28,17 +28,92 @@ class ApiFlashcardRepository implements FlashcardRepository {
             level: jsonText(row, 'level'),
             description: jsonText(row, 'description'),
             wordCount: (row['wordCount'] as num?)?.toInt() ?? 0,
+            systemDeck: row['systemDeck'] != false,
+            ownerUserId: (row['ownerUserId'] as num?)?.toInt(),
+            category: jsonText(row, 'category'),
             words: const [],
           ),
         )
         .toList(growable: false);
   }
 
+  Future<Map<int, bool>> getProgress() async {
+    final rows = jsonObjects(
+      await api.get('/api/flashcards/progress', authenticated: true),
+    );
+    return {
+      for (final row in rows)
+        if (row['vocabularyId'] is num && row['remembered'] is bool)
+          (row['vocabularyId'] as num).toInt(): row['remembered'] as bool,
+    };
+  }
+
+  Future<FlashcardDeck> saveDeck({
+    String? id,
+    required String level,
+    required String name,
+    required String category,
+    required String description,
+  }) async {
+    final row = jsonObject(
+      await api.request(
+        id == null ? 'POST' : 'PUT',
+        '/api/flashcards/decks${id == null ? '' : '/${Uri.encodeComponent(id)}'}',
+        authenticated: true,
+        body: {
+          'level': level,
+          'name': name.trim(),
+          'category': category.trim(),
+          'description': description.trim(),
+        },
+      ),
+    );
+    return FlashcardDeck(
+      id: jsonText(row, 'id'),
+      name: jsonText(row, 'name'),
+      level: jsonText(row, 'level'),
+      description: jsonText(row, 'description'),
+      category: jsonText(row, 'category'),
+      systemDeck: row['systemDeck'] != false,
+      ownerUserId: (row['ownerUserId'] as num?)?.toInt(),
+      wordCount: (row['wordCount'] as num?)?.toInt(),
+      words: const [],
+    );
+  }
+
+  Future<void> deleteDeck(String id) async {
+    await api.request(
+      'DELETE',
+      '/api/flashcards/decks/${Uri.encodeComponent(id)}',
+      authenticated: true,
+    );
+  }
+
+  Future<void> addWord(String deckId, Map<String, String> word) async {
+    await api.request(
+      'POST',
+      '/api/flashcards/decks/${Uri.encodeComponent(deckId)}/custom-vocabularies',
+      authenticated: true,
+      body: word,
+    );
+  }
+
+  Future<void> removeWord(String deckId, int wordId) async {
+    await api.request(
+      'DELETE',
+      '/api/flashcards/decks/${Uri.encodeComponent(deckId)}/vocabularies/$wordId',
+      authenticated: true,
+    );
+  }
+
   @override
   Future<List<FlashcardWord>> getWords(FlashcardDeck deck) async {
     final rows = jsonObjects(
       await api.get(
-        '/api/flashcards/decks/${Uri.encodeComponent(deck.id)}/vocabularies',
+        deck.id == 'all'
+            ? '/api/flashcards/vocabularies'
+            : '/api/flashcards/decks/${Uri.encodeComponent(deck.id)}/vocabularies',
+        query: deck.id == 'all' ? {'level': deck.level} : null,
         authenticated: true,
       ),
     );
@@ -46,14 +121,17 @@ class ApiFlashcardRepository implements FlashcardRepository {
         .map(
           (row) => FlashcardWord(
             id: (row['id'] as num?)?.toInt(),
-            word: jsonText(row, 'word').isNotEmpty
-                ? jsonText(row, 'word')
-                : jsonText(row, 'kanji'),
+            word: jsonText(row, 'kanji').isNotEmpty
+                ? jsonText(row, 'kanji')
+                : jsonText(row, 'word'),
             hiragana: jsonText(row, 'hiragana'),
             romaji: jsonText(row, 'romaji'),
             meaning: jsonText(row, 'meaning'),
             example: jsonText(row, 'exampleJapanese'),
             exampleVi: jsonText(row, 'exampleVietnamese'),
+            hanViet: jsonText(row, 'hanViet'),
+            partOfSpeech: jsonText(row, 'partOfSpeech'),
+            exampleFurigana: jsonObjects(row['exampleFurigana'] ?? []),
           ),
         )
         .toList(growable: false);

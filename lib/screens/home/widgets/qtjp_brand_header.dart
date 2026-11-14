@@ -15,25 +15,33 @@ class QTJPBrandHeader extends StatelessWidget {
       child: SizedBox(
         width: 146,
         height: 44,
-        child: Image.asset(
-          _assetPath,
-          alignment: Alignment.centerLeft,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.high,
-          excludeFromSemantics: true,
-          errorBuilder: (context, error, stackTrace) {
-            return const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'QTJP Learning',
-                style: TextStyle(
-                  color: QTJPColors.navy,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Image.asset(
+            _assetPath,
+            alignment: Alignment.centerLeft,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            excludeFromSemantics: true,
+            errorBuilder: (context, error, stackTrace) {
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'QTJP Learning',
+                  style: TextStyle(
+                    color: context.qtjp.heading,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

@@ -57,6 +57,9 @@ Future<AppController> signedIn(ApiTransport transport) async {
             'token': 'test-token',
           });
         }
+        if (uri.path == '/api/notifications/unread-count') {
+          return const ApiResponse(200, {'unreadCount': 0});
+        }
         return transport(method, uri, headers, body);
       },
     ),

@@ -24,7 +24,7 @@ void main() {
   testWidgets('renders the QTJP branded home screen', (tester) async {
     await tester.pumpWidget(QTJPMobile(controller: controller));
 
-    expect(find.textContaining('Học tiếng Nhật'), findsOneWidget);
+    expect(find.text('Học tiếng Nhật\ncùng QTJP'), findsOneWidget);
     expect(find.text('Bắt đầu học'), findsOneWidget);
     expect(find.text('Bảng chữ cái Nhật'), findsOneWidget);
     expect(find.text('Flashcard từ vựng'), findsOneWidget);
@@ -32,7 +32,7 @@ void main() {
     expect(find.text('Từ điển Nhật – Việt'), findsOneWidget);
     expect(find.text('Luyện viết với AI'), findsWidgets);
     expect(find.text('Thi thử JLPT'), findsWidgets);
-    expect(find.text('Học qua video'), findsOneWidget);
+    expect(find.text('Học qua video'), findsWidgets);
     expect(find.text('Chọn cấp độ JLPT'), findsOneWidget);
     expect(find.text('Con đường mùa hoa'), findsOneWidget);
     expect(find.text('Phú Sĩ mùa thu'), findsOneWidget);
@@ -57,9 +57,9 @@ void main() {
       find.byKey(const ValueKey('japan-inspiration-carousel')),
       findsOneWidget,
     );
-    expect(find.text('Kyuto AI'), findsOneWidget);
+    expect(find.byKey(const ValueKey('kyuto-avatar')), findsOneWidget);
 
-    await tester.tap(find.text('Kyuto AI'));
+    await tester.tap(find.byKey(const ValueKey('kyuto-avatar')));
     await tester.pumpAndSettle();
 
     expect(find.text('Kyuto · Trợ lý AI QTJP'), findsOneWidget);
@@ -114,7 +114,7 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('Học tập cùng QTJP'), findsOneWidget);
+    expect(find.byKey(const ValueKey('learning-heading')), findsOneWidget);
     await tester.tap(find.text('Luyện đề'));
     await tester.pumpAndSettle();
     expect(find.text('Cấp độ đang chọn: N3'), findsOneWidget);
@@ -142,9 +142,9 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
 
       await tester.pumpWidget(QTJPMobile(controller: controller));
-      await tester.tap(find.text('Cá nhân'));
+      await tester.tap(find.byKey(const ValueKey('home-account-avatar')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-login')));
+      await tester.tap(find.byKey(const ValueKey('account-menu-Đăng nhập')));
       await tester.pumpAndSettle();
 
       final submit = find.byKey(const ValueKey('login-submit'));
@@ -185,26 +185,24 @@ void main() {
       tester.view.resetViewInsets();
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(
-        find.text('Bạn đang khám phá ứng dụng với tư cách khách.'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('home-account-avatar')), findsOneWidget);
+      expect(controller.isAuthenticated, isFalse);
     },
   );
 
-  testWidgets('Kyuto dictionary shortcut navigates out of its sheet', (
+  testWidgets('Kyuto dictionary shortcut navigates out of its chatbox', (
     tester,
   ) async {
     await tester.pumpWidget(QTJPMobile(controller: controller));
-    await tester.tap(find.text('Kyuto AI'));
+    await tester.tap(find.byKey(const ValueKey('kyuto-avatar')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tra từ vựng'));
     await tester.pumpAndSettle();
-    expect(find.text('Từ điển Nhật – Việt'), findsOneWidget);
+    expect(find.byKey(const ValueKey('dictionary-query')), findsOneWidget);
     expect(find.text('Kyuto · Trợ lý AI QTJP'), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('Kyuto AI'), findsOneWidget);
+    expect(find.byKey(const ValueKey('kyuto-avatar')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
