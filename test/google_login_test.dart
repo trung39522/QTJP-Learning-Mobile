@@ -59,6 +59,17 @@ Future<void> submit(WidgetTester tester) async {
 }
 
 void main() {
+  test(
+    'unconfigured Google login fails before opening the native provider',
+    () async {
+      expect(DeviceGoogleIdentity.serverClientId, isEmpty);
+      await expectLater(
+        DeviceGoogleIdentity().credential(),
+        throwsA(isA<ApiException>()),
+      );
+    },
+    skip: DeviceGoogleIdentity.serverClientId.isNotEmpty,
+  );
   test('remembered Google login persists only the application JWT', () async {
     final store = MemoryStore();
     final app = AppController(

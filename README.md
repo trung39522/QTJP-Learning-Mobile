@@ -36,6 +36,18 @@ flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8080
 
 Bản release sử dụng API qua HTTPS. Việc build và chạy iOS cần macOS/Xcode.
 
+## Cấu hình riêng và quyền riêng tư
+
+Sao chép [cấu hình mẫu](./config/local.example.json) thành `config/local.json`, rồi điền API và Google client ID của bạn. File cấu hình thật và ghi chú `*.local.md` chỉ lưu trên máy, đã được Git bỏ qua.
+
+~~~sh
+flutter run --dart-define-from-file=config/local.json
+~~~
+
+Không lưu mật khẩu, token, client secret, email cá nhân, mã thiết bị, chứng chỉ ký hoặc bản sao dữ liệu người dùng vào mã nguồn. Chỉ dùng địa chỉ mẫu như `learner@example.com` trong kiểm thử. Client ID được đóng gói trong ứng dụng khi build nên không phải nơi lưu bí mật.
+
+Chạy `powershell -NoProfile -File tool/check_public_files.ps1` trước khi đưa mã lên GitHub. Trên Windows có thể bật kiểm tra tự động trước commit bằng `git config core.hooksPath .githooks`. Dùng tên hiển thị công khai và email GitHub no-reply cho metadata commit.
+
 ## Kiểm thử
 
 ~~~sh
@@ -47,4 +59,5 @@ flutter test
 
 - [Tổng quan chức năng](./docs/features.md)
 - [API và cấu hình kết nối](./docs/mobile-api.md)
+- [Thiết lập Google Sign-In](./docs/google-sign-in.md)
 - [Giấy phép dữ liệu nét viết Kana](./assets/alphabet/KANJIVG_LICENSE.txt)

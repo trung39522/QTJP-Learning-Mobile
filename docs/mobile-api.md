@@ -5,14 +5,14 @@
 ## Cấu hình
 
 ~~~sh
-flutter run --dart-define=API_BASE_URL=http<LOCAL_PROJECT_PATH>
+flutter run --dart-define=API_BASE_URL=https://your-api-domain.com
 ~~~
 
 Với Android kết nối USB và backend tại cổng 8080:
 
 ~~~sh
 adb reverse tcp:8080 tcp:8080
-flutter run --dart-define=API_BASE_URL=htt<LOCAL_PROJECT_PATH>
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8080
 ~~~
 
 Cần thiết lập lại chuyển tiếp cổng sau khi kết nối lại USB hoặc khởi động lại thiết bị. iOS sử dụng API HTTPS truy cập được từ thiết bị và môi trường macOS/Xcode.

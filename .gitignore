@@ -59,3 +59,25 @@ app.*.map.json
 *.mobileprovision
 **/service-account*.json
 **/service_account*.json
+
+# Private runtime settings, personal notes, cloud config and exports.
+/config/*
+!/config/*.example.json
+*.local.json
+*.local.yaml
+*.local.yml
+*.local.md
+*.local.xcconfig
+**/google-services.json
+**/GoogleService-Info.plist
+**/client_secret*.json
+**/credentials*.json
+*.db
+*.sqlite
+*.sqlite3
+*.har
+*.hprof
+*.dump
+*.apk
+*.aab
+*.ipa
